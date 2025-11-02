@@ -42,9 +42,9 @@ function App() {
         <div className="bg-circle-1"></div>
         <div className="bg-circle-2"></div>
       </div>
-      <div className="relative w-full max-w-7xl">
-        <div className="grid lg:grid-cols-2 gap-8 items-start">
-          <div className="space-y-6">
+      <div className="relative w-full max-w-7xl mx-auto px-4">
+        <div className="grid lg:grid-cols-2 gap-12 items-start">
+          <div className="space-y-8 max-w-2xl">
             {/* Header Card */}
             <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl">
               <div className="flex items-center gap-3 mb-3">
@@ -63,8 +63,8 @@ function App() {
               <h3 className="text-white font-semibold mb-4 text-center">Reference Card Example</h3>
 
               {/* Card Screenshot Container */}
-              <div className="flex justify-center">
-                <div className="relative bg-gradient-to-br from-zinc-900 to-black rounded-2xl p-5 border border-zinc-800 shadow-2xl w-[600px]">
+              <div className="flex justify-center overflow-x-auto py-4">
+                <div className="relative bg-gradient-to-br from-zinc-900 to-black rounded-2xl p-5 border border-zinc-800 shadow-2xl w-full max-w-[600px] min-w-[320px]">
                   {/* Recreated Card */}
                   <div className="space-y-3">
                     {/* Card Header */}
@@ -109,9 +109,9 @@ function App() {
                           <p className="text-lime-400 text-[32px] font-bold leading-none tracking-tight">125.94x</p>
                         </div>
                         {/* Annotation Arrow */}
-                        <div className="absolute -right-16 top-1/2 -translate-y-1/2 hidden xl:block">
+                        <div className="absolute -right-4 lg:-right-16 top-1/2 -translate-y-1/2 hidden lg:block">
                           <div className="flex items-center gap-2">
-                            <div className="w-12 h-0.5 bg-lime-400"></div>
+                            <div className="w-8 lg:w-12 h-0.5 bg-lime-400"></div>
                             <div className="bg-lime-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-semibold">
                               Step 1
                             </div>
@@ -143,9 +143,9 @@ function App() {
                           </p>
                         </div>
                         {/* Annotation Arrow */}
-                        <div className="absolute -right-16 top-1/2 -translate-y-1/2 hidden xl:block">
+                        <div className="absolute -right-4 lg:-right-16 top-1/2 -translate-y-1/2 hidden lg:block">
                           <div className="flex items-center gap-2">
-                            <div className="w-12 h-0.5 bg-purple-400"></div>
+                            <div className="w-8 lg:w-12 h-0.5 bg-purple-400"></div>
                             <div className="bg-purple-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-semibold">
                               Step 2
                             </div>
@@ -166,9 +166,9 @@ function App() {
                           </p>
                         </div>
                         {/* Annotation Arrow */}
-                        <div className="absolute -right-16 top-1/2 -translate-y-1/2 hidden xl:block">
+                        <div className="absolute -right-4 lg:-right-16 top-1/2 -translate-y-1/2 hidden lg:block">
                           <div className="flex items-center gap-2">
-                            <div className="w-12 h-0.5 bg-blue-400"></div>
+                            <div className="w-8 lg:w-12 h-0.5 bg-blue-400"></div>
                             <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-semibold">
                               Step 3
                             </div>

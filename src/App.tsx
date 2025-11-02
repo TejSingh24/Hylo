@@ -63,39 +63,38 @@ function App() {
               <h3 className="text-white font-semibold mb-4 text-center">Reference Card Example</h3>
 
               {/* Card Screenshot Container */}
-              <div className="flex justify-center overflow-x-auto py-4">
-                <div className="relative bg-gradient-to-br from-zinc-900 to-black rounded-2xl p-5 border border-zinc-800 shadow-2xl w-full max-w-[600px] min-w-[320px]">
+              <div className="flex justify-center py-4">
+                <div className="relative bg-[#141517] rounded-2xl p-5 border border-zinc-800/50 shadow-2xl w-full max-w-[550px] min-w-[320px] aspect-[595/150]">
                   {/* Recreated Card */}
                   <div className="space-y-3">
                     {/* Card Header */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 bg-gradient-to-br from-purple-600 to-purple-500 rounded-full flex items-center justify-center shadow-lg ring-2 ring-purple-500/30">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="4" y="6" width="16" height="3" rx="1.5" fill="white" />
-                            <rect x="4" y="11" width="16" height="3" rx="1.5" fill="white" />
-                            <rect x="4" y="16" width="16" height="3" rx="1.5" fill="white" />
+                        <div className="w-8 h-8 bg-[#7E3BDC] rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="20" cy="20" r="20" fill="currentColor"/>
+                            <path fillRule="evenodd" clipRule="evenodd" d="M20 0C31.0457 0 40 8.9543 40 20C40 31.0457 31.0457 40 20 40C8.9543 40 0 31.0457 0 20C0 8.9543 8.9543 0 20 0ZM21.6326 15.6522C21.6326 14.7348 20.8935 13.9928 19.9797 13.9928C19.0659 13.9928 18.3269 14.7348 18.3269 15.6522V18.3116H15.6731C14.7593 18.3116 14.0203 19.0536 14.0203 19.971C14.0203 20.8884 14.7593 21.6304 15.6731 21.6304H18.3269V24.2899C18.3269 25.2072 19.0659 25.9493 19.9797 25.9493C20.8935 25.9493 21.6326 25.2072 21.6326 24.2899V21.6304H24.2864C25.2002 21.6304 25.9392 20.8884 25.9392 19.971C25.9392 19.0536 25.2002 18.3116 24.2864 18.3116H21.6326V15.6522Z" fill="white"/>
                           </svg>
                         </div>
                         <div>
-                          <h4 className="text-white font-medium text-base tracking-wide">hyloSOL-2541</h4>
+                          <h4 className="text-white font-medium text-[15px] tracking-wide">hyloSOL-2541</h4>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full border border-gray-500 flex items-center justify-center">
+                        <div className="w-5 h-5 rounded-full border border-gray-600 flex items-center justify-center">
                           <span className="text-gray-400 text-xs">ⓘ</span>
                         </div>
-                        <span className="text-yellow-400 text-lg">⭐</span>
+                        <span className="text-amber-400 text-lg">⭐</span>
                       </div>
                     </div>
 
                     {/* Leverage Tags */}
                     <div className="flex gap-2.5 text-sm mb-3">
-                      <span className="text-lime-400 flex items-center gap-1 font-medium">
-                        <span className="text-lime-400">⚡</span> 2x
+                      <span className="text-[#4AE14D] flex items-center gap-1 font-medium">
+                        <span>⚡</span> 2x
                       </span>
-                      <span className="text-white flex items-center gap-1 font-medium">
-                        <span className="text-white">⊗</span> 5x
+                      <span className="text-white/90 flex items-center gap-1 font-medium">
+                        <span>⊗</span> 5x
                       </span>
                     </div>
 
@@ -103,16 +102,16 @@ function App() {
                     <div className="grid grid-cols-2 gap-6 mb-3">
                       {/* Yield Exposure - Highlighted */}
                       <div className="relative">
-                        <div className="absolute -inset-2 bg-lime-500/20 rounded-lg border-2 border-lime-400 animate-pulse"></div>
+                        <div className="absolute -inset-2 bg-[#4AE14D]/20 rounded-lg border-2 border-[#4AE14D] animate-pulse"></div>
                         <div className="relative">
                           <p className="text-gray-500 text-xs mb-1 font-normal">Yield Exposure</p>
-                          <p className="text-lime-400 text-[32px] font-bold leading-none tracking-tight">125.94x</p>
+                          <p className="text-[#4AE14D] text-[32px] font-bold leading-none tracking-tight">125.94x</p>
                         </div>
                         {/* Annotation Arrow */}
                         <div className="absolute -right-4 lg:-right-16 top-1/2 -translate-y-1/2 hidden lg:block">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 lg:w-12 h-0.5 bg-lime-400"></div>
-                            <div className="bg-lime-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-semibold">
+                            <div className="w-8 lg:w-12 h-0.5 bg-[#4AE14D]"></div>
+                            <div className="bg-[#4AE14D] text-black text-xs px-2 py-1 rounded whitespace-nowrap font-semibold">
                               Step 1
                             </div>
                           </div>
@@ -122,24 +121,24 @@ function App() {
                       {/* Implied Yield */}
                       <div className="relative">
                         <p className="text-gray-500 text-xs mb-1 font-normal">Implied Yield</p>
-                        <p className="text-lime-400 text-[32px] font-bold leading-none tracking-tight mb-1">11.596%</p>
+                        <p className="text-[#4AE14D] text-[32px] font-bold leading-none tracking-tight mb-1">11.596%</p>
                         <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-lime-400 text-xs font-medium">+1.66%</span>
-                          <div className="flex-1 h-0.5 bg-lime-400/30 rounded-full overflow-hidden">
-                            <div className="h-full w-2/3 bg-lime-400 rounded-full"></div>
+                          <span className="text-[#4AE14D] text-xs font-medium">+1.66%</span>
+                          <div className="flex-1 h-0.5 bg-[#4AE14D]/30 rounded-full overflow-hidden">
+                            <div className="h-full w-2/3 bg-[#4AE14D] rounded-full"></div>
                           </div>
                         </div>
                       </div>
                     </div>
 
                     {/* Bottom Row */}
-                    <div className="flex justify-between items-center pt-3 border-t border-zinc-800">
+                    <div className="flex justify-between items-center pt-3 border-t border-zinc-800/50">
                       {/* Underlying APY - Highlighted */}
                       <div className="relative">
                         <div className="absolute -inset-2 bg-purple-500/20 rounded-lg border-2 border-purple-400 animate-pulse"></div>
                         <div className="relative">
-                          <p className="text-gray-500 text-xs font-normal">
-                            Underlying APY <span className="text-white font-semibold">8.10%</span>
+                          <p className="text-gray-500 text-xs font-normal flex items-center gap-1">
+                            Underlying APY <span className="text-white font-medium">8.10%</span>
                           </p>
                         </div>
                         {/* Annotation Arrow */}
@@ -158,11 +157,10 @@ function App() {
                         <div className="absolute -inset-2 bg-blue-500/20 rounded-lg border-2 border-blue-400 animate-pulse"></div>
                         <div className="relative">
                           <p className="text-gray-500 text-xs flex items-center gap-1.5 font-normal">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-gray-500">
-                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                              <path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
-                            <span className="text-white font-semibold">26 Days</span>
+                            <span className="text-white font-medium">26 Days</span>
                           </p>
                         </div>
                         {/* Annotation Arrow */}

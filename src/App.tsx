@@ -44,37 +44,37 @@ function App() {
       </div>
       <div className="relative w-full max-w-7xl mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-12 items-start">
-          <div className="space-y-8 max-w-2xl">
+          <div className="space-y-16 max-w-2xl">
             {/* Header Card */}
-              <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-xl">
-              <div className="flex items-start gap-3">
-                <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg mt-0.5">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl" style={{marginBottom:20,}}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg" style={{margin:10}}>
                   <Info className="w-5 h-5 text-white" />
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white mb-2">How to Use This Calculator</h2>
-                  <p className="text-purple-200 text-sm leading-relaxed">
-                    Find the values from your Hylo asset card and enter them below. The highlighted areas show exactly where each value is located.
-                  </p>
-                </div>
+                <h2 className="text-2xl font-bold text-white">How to Use This Calculator</h2>
               </div>
+              <p className="text-purple-200 text-sm leading-relaxed" style={{margin:10}}>
+                Find the values from your Hylo asset card and enter them below. The highlighted areas show exactly where each value is located.
+              </p>
             </div>
 
             {/* Screenshot with Annotations */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-xl mt-6">
-              <h3 className="text-white font-semibold mb-5 text-center">Reference Card Example</h3>              {/* Card Screenshot Container */}
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl mb-16" style={{marginBottom:20,}}>
+              <h3 className="text-white font-semibold mb-4 text-center">Reference Card Example</h3>
+
+              {/* Card Screenshot Container */}
               <div className="flex justify-center py-4">
                <img src="/ratex-card.png" alt="RateX Card Example" className="w-full max-w-sm rounded-lg shadow-lg" />
               </div>
             </div>
 
             {/* Detailed Instructions */}
-            <div className="space-y-6 mt-6">
+            <div className="space-y-12" style={{marginTop: 40}}>
               {/* Leverage Instructions */}
               <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-lime-400/50 transition-all duration-300">
                 <div className="flex items-start gap-3">
-                  <div className="bg-gradient-to-br from-lime-500 to-green-600 p-2 rounded-lg flex-shrink-0">
-                    <TrendingUp className="w-4 h-4 text-white" />
+                  <div className="bg-gradient-to-br from-lime-500 to-green-600 p-2 rounded-lg flex-shrink-0" style={{margin:10}}>
+                    <TrendingUp className="w-4 h-4 text-white" style={{margin:2}} />
                   </div>
                   <div className="flex-1">
                     <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
@@ -82,16 +82,16 @@ function App() {
                       <span className="text-xs bg-lime-500/20 text-lime-300 px-2 py-0.5 rounded-full">Step 1</span>
                     </h3>
                     <p className="text-purple-200 text-sm leading-relaxed">
-                      Enter the <span className="text-[#4AE14D] font-semibold">Yield Exposure</span> value from your card. This shows your leveraged yield multiplier.
+                      Enter the <span className="text-lime-400 font-semibold">Yield Exposure</span> value from your card. This shows your leveraged yield multiplier.
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* APY Instructions */}
-              <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-purple-400/50 transition-all duration-300">
+              <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-purple-400/50 transition-all duration-300" style={{marginTop: 30}}>
                 <div className="flex items-start gap-3">
-                  <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-2 rounded-lg flex-shrink-0">
+                  <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-2 rounded-lg flex-shrink-0" style={{margin:10}}>
                     <Percent className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1">
@@ -110,9 +110,9 @@ function App() {
               </div>
 
               {/* Maturity Days Instructions */}
-              <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-blue-400/50 transition-all duration-300">
+              <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-blue-400/50 transition-all duration-300" style={{marginTop: 30}}>
                 <div className="flex items-start gap-3">
-                  <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-2 rounded-lg flex-shrink-0">
+                  <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-2 rounded-lg flex-shrink-0" style={{margin:10}}>
                     <Clock className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1">
@@ -121,7 +121,7 @@ function App() {
                       <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Step 3</span>
                     </h3>
                     <p className="text-purple-200 text-sm leading-relaxed mb-2">
-                      Enter the number of days shown next to the <span className="text-blue-400 font-semibold">timer icon</span> at the bottom right.
+                      Enter the number of days shown next to the <span className="text-blue-400 font-semibold">timer icon ⏱️</span> at the bottom right.
                     </p>
                     <p className="text-purple-200/70 text-xs italic">
                       💡 Enter <span className="text-blue-400 font-semibold">1</span> to calculate daily yield return
@@ -131,19 +131,19 @@ function App() {
               </div>
 
               {/* Yield Explanation */}
-              <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-xl rounded-xl p-5 border border-amber-500/30 shadow-xl mt-8">
+              <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-xl rounded-xl p-5 border border-amber-500/30 shadow-xl" style={{marginTop: 60}}>
                 <div className="flex items-start gap-3">
-                  <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-2 rounded-lg flex-shrink-0">
+                  <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-2 rounded-lg flex-shrink-0" style={{margin:10}}>
                     <Calculator className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-white font-semibold mb-3">Understanding Your Yield</h3>
-                    <p className="text-purple-200 text-sm leading-relaxed mb-4">
+                    <h3 className="text-white font-semibold mb-2">Understanding Your Yield</h3>
+                    <p className="text-purple-200 text-sm leading-relaxed mb-3">
                       Yield is returned in the <span className="text-amber-400 font-semibold">underlying asset</span> you're buying through (e.g., HyloSOL). For example, 80% HyloSOL recovered means you get back 80% of your principal.
                     </p>
-                    <div className="bg-black/30 rounded-lg p-4 border border-amber-500/20">
+                    <div className="bg-black/30 rounded-lg p-3 border border-amber-500/20">
                       <p className="text-xs text-amber-300 mb-2">Calculation Formula:</p>
-                      <p className="text-white text-sm font-mono mb-3">
+                      <p className="text-white text-sm font-mono mb-2">
                         Yield Return = (Investment × Yield%) / 100
                       </p>
                       <p className="text-purple-200 text-xs">

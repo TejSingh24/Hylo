@@ -46,20 +46,20 @@ function App() {
         <div className="grid lg:grid-cols-2 gap-12 items-start">
           <div className="space-y-16 max-w-2xl">
             {/* Header Card */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl" style={{marginBottom:20,}}>
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl" style={{marginBottom:10}}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg" style={{margin:10}}>
+                <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg" style={{margin:3}}>
                   <Info className="w-5 h-5 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-white">How to Use This Calculator</h2>
+                <h2 className="text-2xl font-bold text-white">Rate-X Yield Calculator</h2>
               </div>
-              <p className="text-purple-200 text-sm" style={{marginLeft: 35, marginTop: 8, marginBottom: 16, lineHeight: 1.7}}>
+              <p className="text-purple-200 text-sm" style={{marginLeft: 35, marginTop: 8, marginBottom: 10, lineHeight: 1.7}}>
                 Find the values from your Hylo asset card and enter them below. The highlighted areas show exactly where each value is located.
               </p>
             </div>
 
             {/* Screenshot with Annotations */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl mb-16" style={{marginBottom:20,}}>
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl mb-16" style={{marginBottom:0,}}>
               <h3 className="text-white font-semibold mb-4 text-center">Reference Card Example</h3>
 
               {/* Card Screenshot Container */}
@@ -69,7 +69,7 @@ function App() {
             </div>
 
             {/* Detailed Instructions */}
-            <div className="space-y-12" style={{marginTop: 40}}>
+            <div className="space-y-12" style={{marginTop: 10}}>
               {/* Leverage Instructions */}
               <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-lime-400/50 transition-all duration-300">
                 <div className="flex items-start gap-3">
@@ -81,7 +81,7 @@ function App() {
                       Leverage (Yield Exposure)
                       <span className="text-xs bg-lime-500/20 text-lime-300 px-2 py-0.5 rounded-full">Step 1</span>
                     </h3>
-                    <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 16}}>
+                    <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 10}}>
                       Enter the <span className="text-lime-400 font-semibold">Yield Exposure</span> value from your card. This shows your leveraged yield multiplier.
                     </p>
                   </div>
@@ -89,7 +89,7 @@ function App() {
               </div>
 
               {/* APY Instructions */}
-              <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-purple-400/50 transition-all duration-300" style={{marginTop: 30}}>
+              <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-purple-400/50 transition-all duration-300" style={{marginTop: 10}}>
                 <div className="flex items-start gap-3">
                   <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-2 rounded-lg flex-shrink-0" style={{margin:10}}>
                     <Percent className="w-4 h-4 text-white" />
@@ -102,7 +102,7 @@ function App() {
                     <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 12}}>
                       Use the <span className="text-purple-400 font-semibold">Underlying APY</span> shown at the bottom left (7-day average).
                     </p>
-                    <p className="text-purple-200/70 text-xs italic" style={{marginBottom: 16}}>
+                    <p className="text-purple-200/70 text-xs italic" style={{marginBottom: 10}}>
                       💡 You can also enter your own expected APY based on your predictions
                     </p>
                   </div>
@@ -110,7 +110,7 @@ function App() {
               </div>
 
               {/* Maturity Days Instructions */}
-              <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-blue-400/50 transition-all duration-300" style={{marginTop: 30}}>
+              <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-blue-400/50 transition-all duration-300" style={{marginTop: 10}}>
                 <div className="flex items-start gap-3">
                   <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-2 rounded-lg flex-shrink-0" style={{margin:10}}>
                     <Clock className="w-4 h-4 text-white" />
@@ -123,7 +123,7 @@ function App() {
                     <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 12}}>
                       Enter the number of days shown next to the <span className="text-blue-400 font-semibold">timer icon ⏱️</span> at the bottom right.
                     </p>
-                    <p className="text-purple-200/70 text-xs italic" style={{marginBottom: 16}}>
+                    <p className="text-purple-200/70 text-xs italic" style={{marginBottom: 10}}>
                       💡 Enter <span className="text-blue-400 font-semibold">1</span> to calculate daily yield return
                     </p>
                   </div>
@@ -131,22 +131,22 @@ function App() {
               </div>
 
               {/* Yield Explanation */}
-              <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-xl rounded-xl p-5 border border-amber-500/30 shadow-xl" style={{marginTop: 60}}>
+              <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-xl rounded-xl p-5 border border-amber-500/30 shadow-xl" style={{marginTop: 10}}>
                 <div className="flex items-start gap-3">
                   <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-2 rounded-lg flex-shrink-0" style={{margin:10}}>
                     <Calculator className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-white font-semibold" style={{marginBottom: 12}}>Understanding Your Yield</h3>
-                    <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 20}}>
-                      Yield is returned in the <span className="text-amber-400 font-semibold">underlying asset</span> you're buying through (e.g., HyloSOL). For example, 80% HyloSOL recovered means you get back 80% of your principal.
+                    <h3 className="text-white font-semibold" style={{marginBottom: 0}}>Understanding Your Yield</h3>
+                    <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 10}}>
+                      Yield is returned in the <span className="text-amber-400 font-semibold">underlying asset</span> you're buying through (e.g., HyloSOL). For example, 80% recovered means you get back 80% of your HyloSOL Tokens. For 1 HyloSOL, It would be 0.8 HyloSOL.
                     </p>
-                    <div className="bg-black/30 rounded-lg p-3 border border-amber-500/20" style={{marginTop: 8}}>
-                      <p className="text-xs text-amber-300 mb-2">Calculation Formula:</p>
-                      <p className="text-white text-sm font-mono mb-2">
+                    <div className="bg-black/30 rounded-lg p-3 border border-amber-500/20">
+                      <p className="text-xs text-amber-300 mb-2" style={{marginLeft: 8, marginTop: 3}}>Calculation Formula:</p>
+                      <p className="text-white text-sm font-mono mb-2" style={{marginLeft: 8}}>
                         Yield Return = (Investment × Yield%) / 100
                       </p>
-                      <p className="text-purple-200 text-xs">
+                      <p className="text-purple-200 text-xs" style={{marginLeft: 8, marginBottom: 3}}>
                         Example: $100 invested at 67.97% = <span className="text-green-400 font-semibold">$67.97 recovered</span>
                       </p>
                     </div>

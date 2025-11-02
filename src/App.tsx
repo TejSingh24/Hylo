@@ -53,7 +53,7 @@ function App() {
                 </div>
                 <h2 className="text-2xl font-bold text-white">How to Use This Calculator</h2>
               </div>
-              <p className="text-purple-200 text-sm leading-relaxed" style={{margin:10}}>
+              <p className="text-purple-200 text-sm" style={{marginLeft: 35, marginTop: 8, marginBottom: 16, lineHeight: 1.7}}>
                 Find the values from your Hylo asset card and enter them below. The highlighted areas show exactly where each value is located.
               </p>
             </div>
@@ -81,7 +81,7 @@ function App() {
                       Leverage (Yield Exposure)
                       <span className="text-xs bg-lime-500/20 text-lime-300 px-2 py-0.5 rounded-full">Step 1</span>
                     </h3>
-                    <p className="text-purple-200 text-sm leading-relaxed">
+                    <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 16}}>
                       Enter the <span className="text-lime-400 font-semibold">Yield Exposure</span> value from your card. This shows your leveraged yield multiplier.
                     </p>
                   </div>
@@ -99,10 +99,10 @@ function App() {
                       APY (Annual Percentage Yield)
                       <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">Step 2</span>
                     </h3>
-                    <p className="text-purple-200 text-sm leading-relaxed mb-2">
+                    <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 12}}>
                       Use the <span className="text-purple-400 font-semibold">Underlying APY</span> shown at the bottom left (7-day average).
                     </p>
-                    <p className="text-purple-200/70 text-xs italic">
+                    <p className="text-purple-200/70 text-xs italic" style={{marginBottom: 16}}>
                       💡 You can also enter your own expected APY based on your predictions
                     </p>
                   </div>
@@ -120,10 +120,10 @@ function App() {
                       Maturity Days
                       <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Step 3</span>
                     </h3>
-                    <p className="text-purple-200 text-sm leading-relaxed mb-2">
+                    <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 12}}>
                       Enter the number of days shown next to the <span className="text-blue-400 font-semibold">timer icon ⏱️</span> at the bottom right.
                     </p>
-                    <p className="text-purple-200/70 text-xs italic">
+                    <p className="text-purple-200/70 text-xs italic" style={{marginBottom: 16}}>
                       💡 Enter <span className="text-blue-400 font-semibold">1</span> to calculate daily yield return
                     </p>
                   </div>
@@ -137,11 +137,11 @@ function App() {
                     <Calculator className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-white font-semibold mb-2">Understanding Your Yield</h3>
-                    <p className="text-purple-200 text-sm leading-relaxed mb-3">
+                    <h3 className="text-white font-semibold" style={{marginBottom: 12}}>Understanding Your Yield</h3>
+                    <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 20}}>
                       Yield is returned in the <span className="text-amber-400 font-semibold">underlying asset</span> you're buying through (e.g., HyloSOL). For example, 80% HyloSOL recovered means you get back 80% of your principal.
                     </p>
-                    <div className="bg-black/30 rounded-lg p-3 border border-amber-500/20">
+                    <div className="bg-black/30 rounded-lg p-3 border border-amber-500/20" style={{marginTop: 8}}>
                       <p className="text-xs text-amber-300 mb-2">Calculation Formula:</p>
                       <p className="text-white text-sm font-mono mb-2">
                         Yield Return = (Investment × Yield%) / 100

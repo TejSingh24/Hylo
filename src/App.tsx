@@ -46,144 +46,30 @@ function App() {
         <div className="grid lg:grid-cols-2 gap-12 items-start">
           <div className="space-y-8 max-w-2xl">
             {/* Header Card */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg">
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-xl">
+              <div className="flex items-start gap-3">
+                <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg mt-0.5">
                   <Info className="w-5 h-5 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-white">How to Use This Calculator</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2">How to Use This Calculator</h2>
+                  <p className="text-purple-200 text-sm leading-relaxed">
+                    Find the values from your Hylo asset card and enter them below. The highlighted areas show exactly where each value is located.
+                  </p>
+                </div>
               </div>
-              <p className="text-purple-200 text-sm leading-relaxed">
-                Find the values from your Hylo asset card and enter them below. The highlighted areas show exactly where each value is located.
-              </p>
             </div>
 
             {/* Screenshot with Annotations */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl">
-              <h3 className="text-white font-semibold mb-4 text-center">Reference Card Example</h3>
-
-              {/* Card Screenshot Container */}
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-xl mt-6">
+              <h3 className="text-white font-semibold mb-5 text-center">Reference Card Example</h3>              {/* Card Screenshot Container */}
               <div className="flex justify-center py-4">
-                <div className="relative bg-[#141517] rounded-2xl p-5 border border-zinc-800/50 shadow-2xl w-full max-w-[550px] min-w-[320px] aspect-[595/150]">
-                  {/* Recreated Card */}
-                  <div className="space-y-3">
-                    {/* Card Header */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 bg-[#7E3BDC] rounded-full flex items-center justify-center">
-                          <svg className="w-5 h-5" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="20" cy="20" r="20" fill="currentColor"/>
-                            <path fillRule="evenodd" clipRule="evenodd" d="M20 0C31.0457 0 40 8.9543 40 20C40 31.0457 31.0457 40 20 40C8.9543 40 0 31.0457 0 20C0 8.9543 8.9543 0 20 0ZM21.6326 15.6522C21.6326 14.7348 20.8935 13.9928 19.9797 13.9928C19.0659 13.9928 18.3269 14.7348 18.3269 15.6522V18.3116H15.6731C14.7593 18.3116 14.0203 19.0536 14.0203 19.971C14.0203 20.8884 14.7593 21.6304 15.6731 21.6304H18.3269V24.2899C18.3269 25.2072 19.0659 25.9493 19.9797 25.9493C20.8935 25.9493 21.6326 25.2072 21.6326 24.2899V21.6304H24.2864C25.2002 21.6304 25.9392 20.8884 25.9392 19.971C25.9392 19.0536 25.2002 18.3116 24.2864 18.3116H21.6326V15.6522Z" fill="white"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <h4 className="text-white font-medium text-[15px] tracking-wide">hyloSOL-2541</h4>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full border border-gray-600 flex items-center justify-center">
-                          <span className="text-gray-400 text-xs">ⓘ</span>
-                        </div>
-                        <span className="text-amber-400 text-lg">⭐</span>
-                      </div>
-                    </div>
-
-                    {/* Leverage Tags */}
-                    <div className="flex gap-2.5 text-sm mb-3">
-                      <span className="text-[#4AE14D] flex items-center gap-1 font-medium">
-                        <span>⚡</span> 2x
-                      </span>
-                      <span className="text-white/90 flex items-center gap-1 font-medium">
-                        <span>⊗</span> 5x
-                      </span>
-                    </div>
-
-                    {/* Main Values */}
-                    <div className="grid grid-cols-2 gap-6 mb-3">
-                      {/* Yield Exposure - Highlighted */}
-                      <div className="relative">
-                        <div className="absolute -inset-2 bg-[#4AE14D]/20 rounded-lg border-2 border-[#4AE14D] animate-pulse"></div>
-                        <div className="relative">
-                          <p className="text-gray-500 text-xs mb-1 font-normal">Yield Exposure</p>
-                          <p className="text-[#4AE14D] text-[32px] font-bold leading-none tracking-tight">125.94x</p>
-                        </div>
-                        {/* Annotation Arrow */}
-                        <div className="absolute -right-4 lg:-right-16 top-1/2 -translate-y-1/2 hidden lg:block">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 lg:w-12 h-0.5 bg-[#4AE14D]"></div>
-                            <div className="bg-[#4AE14D] text-black text-xs px-2 py-1 rounded whitespace-nowrap font-semibold">
-                              Step 1
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Implied Yield */}
-                      <div className="relative">
-                        <p className="text-gray-500 text-xs mb-1 font-normal">Implied Yield</p>
-                        <p className="text-[#4AE14D] text-[32px] font-bold leading-none tracking-tight mb-1">11.596%</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-[#4AE14D] text-xs font-medium">+1.66%</span>
-                          <div className="flex-1 h-0.5 bg-[#4AE14D]/30 rounded-full overflow-hidden">
-                            <div className="h-full w-2/3 bg-[#4AE14D] rounded-full"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bottom Row */}
-                    <div className="flex justify-between items-center pt-3 border-t border-zinc-800/50">
-                      {/* Underlying APY - Highlighted */}
-                      <div className="relative">
-                        <div className="absolute -inset-2 bg-purple-500/20 rounded-lg border-2 border-purple-400 animate-pulse"></div>
-                        <div className="relative">
-                          <p className="text-gray-500 text-xs font-normal flex items-center gap-1">
-                            Underlying APY <span className="text-white font-medium">8.10%</span>
-                          </p>
-                        </div>
-                        {/* Annotation Arrow */}
-                        <div className="absolute -right-4 lg:-right-16 top-1/2 -translate-y-1/2 hidden lg:block">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 lg:w-12 h-0.5 bg-purple-400"></div>
-                            <div className="bg-purple-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-semibold">
-                              Step 2
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Maturity Days - Highlighted */}
-                      <div className="relative">
-                        <div className="absolute -inset-2 bg-blue-500/20 rounded-lg border-2 border-blue-400 animate-pulse"></div>
-                        <div className="relative">
-                          <p className="text-gray-500 text-xs flex items-center gap-1.5 font-normal">
-                            <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                            <span className="text-white font-medium">26 Days</span>
-                          </p>
-                        </div>
-                        {/* Annotation Arrow */}
-                        <div className="absolute -right-4 lg:-right-16 top-1/2 -translate-y-1/2 hidden lg:block">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 lg:w-12 h-0.5 bg-blue-400"></div>
-                            <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-semibold">
-                              Step 3
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bottom accent */}
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-lime-500 via-purple-500 to-blue-500"></div>
-                </div>
+               <img src="/ratex-card.png" alt="RateX Card Example" className="w-full max-w-sm rounded-lg shadow-lg" />
               </div>
             </div>
 
             {/* Detailed Instructions */}
-            <div className="space-y-4">
+            <div className="space-y-6 mt-6">
               {/* Leverage Instructions */}
               <div className="bg-white/10 backdrop-blur-xl rounded-xl p-5 border border-white/20 shadow-xl hover:border-lime-400/50 transition-all duration-300">
                 <div className="flex items-start gap-3">
@@ -196,7 +82,7 @@ function App() {
                       <span className="text-xs bg-lime-500/20 text-lime-300 px-2 py-0.5 rounded-full">Step 1</span>
                     </h3>
                     <p className="text-purple-200 text-sm leading-relaxed">
-                      Enter the <span className="text-lime-400 font-semibold">Yield Exposure</span> value from your card. This shows your leveraged yield multiplier.
+                      Enter the <span className="text-[#4AE14D] font-semibold">Yield Exposure</span> value from your card. This shows your leveraged yield multiplier.
                     </p>
                   </div>
                 </div>
@@ -235,7 +121,7 @@ function App() {
                       <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Step 3</span>
                     </h3>
                     <p className="text-purple-200 text-sm leading-relaxed mb-2">
-                      Enter the number of days shown next to the <span className="text-blue-400 font-semibold">timer icon ⏱️</span> at the bottom right.
+                      Enter the number of days shown next to the <span className="text-blue-400 font-semibold">timer icon</span> at the bottom right.
                     </p>
                     <p className="text-purple-200/70 text-xs italic">
                       💡 Enter <span className="text-blue-400 font-semibold">1</span> to calculate daily yield return
@@ -245,19 +131,19 @@ function App() {
               </div>
 
               {/* Yield Explanation */}
-              <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-xl rounded-xl p-5 border border-amber-500/30 shadow-xl">
+              <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-xl rounded-xl p-5 border border-amber-500/30 shadow-xl mt-8">
                 <div className="flex items-start gap-3">
                   <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-2 rounded-lg flex-shrink-0">
                     <Calculator className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-white font-semibold mb-2">Understanding Your Yield</h3>
-                    <p className="text-purple-200 text-sm leading-relaxed mb-3">
+                    <h3 className="text-white font-semibold mb-3">Understanding Your Yield</h3>
+                    <p className="text-purple-200 text-sm leading-relaxed mb-4">
                       Yield is returned in the <span className="text-amber-400 font-semibold">underlying asset</span> you're buying through (e.g., HyloSOL). For example, 80% HyloSOL recovered means you get back 80% of your principal.
                     </p>
-                    <div className="bg-black/30 rounded-lg p-3 border border-amber-500/20">
+                    <div className="bg-black/30 rounded-lg p-4 border border-amber-500/20">
                       <p className="text-xs text-amber-300 mb-2">Calculation Formula:</p>
-                      <p className="text-white text-sm font-mono mb-2">
+                      <p className="text-white text-sm font-mono mb-3">
                         Yield Return = (Investment × Yield%) / 100
                       </p>
                       <p className="text-purple-200 text-xs">

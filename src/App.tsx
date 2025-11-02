@@ -51,7 +51,7 @@ function App() {
                 <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg" style={{margin:3}}>
                   <Info className="w-5 h-5 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-white">Rate-X Yield Calculator</h2>
+                <h2 className="text-2xl font-bold text-white">Hylo Asset Yield Calculator for Rate-X</h2>
               </div>
               <p className="text-purple-200 text-sm" style={{marginLeft: 35, marginTop: 8, marginBottom: 10, lineHeight: 1.7}}>
                 Find the values from your Hylo asset card and enter them below. The highlighted areas show exactly where each value is located.
@@ -147,7 +147,7 @@ function App() {
                         Yield Return = (Investment × Yield%) / 100
                       </p>
                       <p className="text-purple-200 text-xs" style={{marginLeft: 8, marginBottom: 3}}>
-                        Example: $100 invested at 67.97% = <span className="text-green-400 font-semibold">$67.97 recovered</span>
+                        Example: 100 HyloSOL invested at 67.97% = <span className="text-green-400 font-semibold">67.97 HyloSOL recovered through yield</span>
                       </p>
                     </div>
                   </div>

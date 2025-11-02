@@ -100,7 +100,7 @@ function App() {
                       <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">Step 2</span>
                     </h3>
                     <p className="text-purple-200 text-sm" style={{lineHeight: 1.7, marginBottom: 12}}>
-                      Use the <span className="text-purple-400 font-semibold">Underlying APY</span> shown at the bottom left (7-day average).
+                      Use the <span className="text-purple-400 font-semibold">Underlying APY</span> shown at the bottom left (7-day average). Return depends on APY which can change for underlying asset.
                     </p>
                     <p className="text-purple-200/70 text-xs italic" style={{marginBottom: 10}}>
                       💡 You can also enter your own expected APY based on your predictions
@@ -160,7 +160,7 @@ function App() {
             <div className="calculator-card">
               {/* Header */}
               <div className="card-header">
-                <h1>Recovery Calculator</h1>
+                <h1>Yield Calculator</h1>
                 <p className="subtitle">Calculate your yield return</p>
               </div>
 
@@ -205,7 +205,7 @@ function App() {
                     onKeyPress={handleKeyPress}
                     placeholder="Enter maturity days"
                   />
-                  <p className="input-hint">* Enter 1 to calculate daily return</p>
+                  <p className="input-hint" style={{opacity: 0.7, fontSize: '0.75rem', fontStyle: 'italic'}}>💡 Enter 1 to calculate daily yield return</p>
                 </div>
 
                 {/* Calculate Button */}

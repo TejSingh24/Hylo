@@ -1,8 +1,13 @@
 .card-screenshot-container {
   position: relative;
-  display: flex;
-  justify-content: center;
-  padding: 1rem;
+  display: inline-block; /* Changed to inline-block for proper image scaling */
+  width: 100%;
+}
+
+.card-screenshot-container img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 /* Highlight overlays */
@@ -12,6 +17,7 @@
   border-radius: 8px;
   pointer-events: none;
   animation: pulse 2s ease-in-out infinite;
+  transform: translate(-50%, -50%); /* Center the highlight on its position */
 }
 
 .highlight::before {
@@ -22,12 +28,13 @@
   opacity: 0.15;
 }
 
+/* Position for the Yield Exposure value */
 .highlight-yield-exposure {
   border-color: #84cc16;
-  top: 35%;
-  left: 25%;
-  width: 120px;
-  height: 40px;
+  top: 32%; /* Adjust this value to move up/down */
+  left: 38%; /* Adjust this value to move left/right */
+  width: 22%;
+  padding-bottom: 8%;
   animation-delay: 0s;
 }
 
@@ -35,12 +42,13 @@
   background: #84cc16;
 }
 
+/* Position for the Underlying APY value (8.10%) */
 .highlight-apy {
   border-color: #a855f7;
-  bottom: 15%;
-  left: 25%;
-  width: 100px;
-  height: 30px;
+  top: 82%; /* Adjust this value to move up/down */
+  left: 25%; /* Adjust this value to move left/right */
+  width: 18%;
+  padding-bottom: 7%;
   animation-delay: 0.66s;
 }
 
@@ -48,12 +56,13 @@
   background: #a855f7;
 }
 
+/* Position for the Maturity Days value (26 Days) */
 .highlight-maturity {
   border-color: #3b82f6;
-  bottom: 15%;
-  right: 25%;
-  width: 80px;
-  height: 30px;
+  top: 82%; /* Adjust this value to move up/down */
+  left: 75%; /* Adjust this value to move left/right */
+  width: 16%;
+  padding-bottom: 7%;
   animation-delay: 1.33s;
 }
 

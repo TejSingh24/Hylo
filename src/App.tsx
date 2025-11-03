@@ -65,7 +65,7 @@ function App() {
 
               {/* Card Screenshot Container */}
               <div className="card-screenshot-container">
-                <img src="/RateX-Card.jpg" alt="RateX Card Example" className="w-full max-w-sm rounded-lg shadow-lg" />
+                <img src="/RateX-Card.jpg" alt="RateX Card Example" className="w-full max-w-sm rounded-lg shadow-lg"  style={{marginLeft: 110, marginTop: 10, marginRight: 110, marginBottom: 10}}/>
                 {/* Highlights */}
                 <div className="highlight highlight-yield-exposure" />
                 <div className="highlight highlight-apy" />

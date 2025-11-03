@@ -1,0 +1,73 @@
+.card-screenshot-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+}
+
+/* Highlight overlays */
+.highlight {
+  position: absolute;
+  border: 2px solid;
+  border-radius: 8px;
+  pointer-events: none;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.highlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  opacity: 0.15;
+}
+
+.highlight-yield-exposure {
+  border-color: #84cc16;
+  top: 35%;
+  left: 25%;
+  width: 120px;
+  height: 40px;
+  animation-delay: 0s;
+}
+
+.highlight-yield-exposure::before {
+  background: #84cc16;
+}
+
+.highlight-apy {
+  border-color: #a855f7;
+  bottom: 15%;
+  left: 25%;
+  width: 100px;
+  height: 30px;
+  animation-delay: 0.66s;
+}
+
+.highlight-apy::before {
+  background: #a855f7;
+}
+
+.highlight-maturity {
+  border-color: #3b82f6;
+  bottom: 15%;
+  right: 25%;
+  width: 80px;
+  height: 30px;
+  animation-delay: 1.33s;
+}
+
+.highlight-maturity::before {
+  background: #3b82f6;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.02);
+  }
+}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './App.css'
+import './components/CardHighlights.css'
 import { Info, TrendingUp, Clock, Percent, Calculator } from 'lucide-react';
 
 function App() {
@@ -63,8 +64,12 @@ function App() {
               <h3 className="text-white font-semibold mb-4 text-center">Reference Card Example</h3>
 
               {/* Card Screenshot Container */}
-              <div className="flex justify-center py-4">
-               <img src="/ratex-card.png" alt="RateX Card Example" className="w-full max-w-sm rounded-lg shadow-lg" />
+              <div className="card-screenshot-container">
+                <img src="/RateX-Card.jpg" alt="RateX Card Example" className="w-full max-w-sm rounded-lg shadow-lg" />
+                {/* Highlights */}
+                <div className="highlight highlight-yield-exposure" />
+                <div className="highlight highlight-apy" />
+                <div className="highlight highlight-maturity" />
               </div>
             </div>
 

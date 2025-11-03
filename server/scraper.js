@@ -258,8 +258,10 @@ export async function scrapeAllAssets() {
           if (processedAssets.has(assetName)) continue;
           
           // Now find the parent card containing all data for this asset
+          // We want the SMALLEST (most specific) card, not the first one
           let current = element;
-          let cardFound = false;
+          let bestCard = null;
+          let smallestLevel = 999;
           
           for (let i = 0; i < 15; i++) {
             if (!current.parentElement) break;
@@ -273,61 +275,75 @@ export async function scrapeAllAssets() {
             const hasDays = cardText.includes('Days');
             const hasAssetName = cardText.includes(fullAssetName);
             
-            if (hasYieldExposure && hasAPY && hasDays && hasAssetName) {
-              // Found complete card - extract all data
-              const result = {
-                asset: assetName,
-                leverage: null,
-                apy: null,
-                maturityDays: null,
-                assetBoost: null,
-                ratexBoost: null
-              };
-              
-              // Extract Leverage (Yield Exposure)
-              const leverageMatch = cardText.match(/Yield\s+Exposure[^\d]*([\d.]+)\s*x/i);
-              if (leverageMatch) {
-                result.leverage = parseFloat(leverageMatch[1]);
+            // IMPORTANT: Make sure this card contains ONLY this asset's data
+            // Count how many asset-like patterns exist in this card
+            // A valid individual card should have just ONE asset name pattern
+            const assetPatternMatches = cardText.match(/[A-Za-z0-9*+\-]+-\d{4}/g);
+            const isIndividualCard = assetPatternMatches && assetPatternMatches.length === 1;
+            
+            if (hasYieldExposure && hasAPY && hasDays && hasAssetName && isIndividualCard) {
+              // Found a complete individual card - prefer the smallest (most specific) one
+              if (i < smallestLevel) {
+                bestCard = current;
+                smallestLevel = i;
               }
-              
-              // Extract APY
-              const apyMatch = cardText.match(/Underlying\s+APY\s*([\d.]+)\s*%/i);
-              if (apyMatch) {
-                result.apy = parseFloat(apyMatch[1]);
-              }
-              
-              // Extract Maturity Days
-              const maturityMatch = cardText.match(/([\d]+)\s*Days/i);
-              if (maturityMatch) {
-                result.maturityDays = parseInt(maturityMatch[1]);
-              }
-              
-              // Extract Asset Boost and RateX Boost
-              const assetNamePattern = new RegExp(`${assetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{4}`, 'i');
-              const cleanedText = cardText.replace(assetNamePattern, '');
-              const boostSection = cleanedText.split('Yield Exposure')[0];
-              const boostMatches = boostSection.match(/(\d+)x/gi);
-              
-              if (boostMatches && boostMatches.length >= 2) {
-                result.assetBoost = parseFloat(boostMatches[0].replace(/x/i, ''));
-                result.ratexBoost = parseFloat(boostMatches[1].replace(/x/i, ''));
-              } else if (boostMatches && boostMatches.length === 1) {
-                result.assetBoost = parseFloat(boostMatches[0].replace(/x/i, ''));
-                result.ratexBoost = 1;
-              }
-              
-              // Only add if we got essential data (leverage and maturity are required)
-              if (result.leverage !== null && result.maturityDays !== null) {
-                assets.push(result);
-                processedAssets.add(assetName);
-              }
-              
-              cardFound = true;
-              break;
             }
           }
-        }
-      }
+          
+          // Only process if we found a valid card
+          if (bestCard) {
+            const cardText = bestCard.textContent;
+            
+            // Extract all data
+            const result = {
+              asset: assetName,
+              leverage: null,
+              apy: null,
+              maturityDays: null,
+              assetBoost: null,
+              ratexBoost: null
+            };
+            
+            // Extract Leverage (Yield Exposure)
+            const leverageMatch = cardText.match(/Yield\s+Exposure[^\d]*([\d.]+)\s*x/i);
+            if (leverageMatch) {
+              result.leverage = parseFloat(leverageMatch[1]);
+            }
+            
+            // Extract APY
+            const apyMatch = cardText.match(/Underlying\s+APY\s*([\d.]+)\s*%/i);
+            if (apyMatch) {
+              result.apy = parseFloat(apyMatch[1]);
+            }
+            
+            // Extract Maturity Days
+            const maturityMatch = cardText.match(/([\d]+)\s*Days/i);
+            if (maturityMatch) {
+              result.maturityDays = parseInt(maturityMatch[1]);
+            }
+            
+            // Extract Asset Boost and RateX Boost
+            const assetNamePattern = new RegExp(`${assetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{4}`, 'i');
+            const cleanedText = cardText.replace(assetNamePattern, '');
+            const boostSection = cleanedText.split('Yield Exposure')[0];
+            const boostMatches = boostSection.match(/(\d+)x/gi);
+            
+            if (boostMatches && boostMatches.length >= 2) {
+              result.assetBoost = parseFloat(boostMatches[0].replace(/x/i, ''));
+              result.ratexBoost = parseFloat(boostMatches[1].replace(/x/i, ''));
+            } else if (boostMatches && boostMatches.length === 1) {
+              result.assetBoost = parseFloat(boostMatches[0].replace(/x/i, ''));
+              result.ratexBoost = 1;
+            }
+            
+            // Only add if we found essential data
+            if (result.leverage !== null && result.maturityDays !== null) {
+              assets.push(result);
+              processedAssets.add(assetName);
+            }
+          } // Close if (bestCard)
+        } // Close if (assetNameMatch)
+      } // Close for loop
       
       return assets;
     });

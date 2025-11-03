@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import './components/CardHighlights.css'
 import { Info, TrendingUp, Clock, Percent, Calculator, Zap, RefreshCw } from 'lucide-react';
-import { fetchAllAssets, fetchAssetData, type AssetData } from './services/ratexApi';
+import { fetchAllAssets, type AssetData } from './services/ratexApi';
 
 function App() {
   // Calculator mode: 'manual' or 'auto'
@@ -15,10 +15,11 @@ function App() {
   
   // Auto mode states
   const [availableAssets, setAvailableAssets] = useState<AssetData[]>([])
-  const [selectedAsset, setSelectedAsset] = useState<string>('xSOL')
+  const [selectedAsset, setSelectedAsset] = useState<string>('')
   const [autoData, setAutoData] = useState<AssetData | null>(null)
   const [isFetchingAssets, setIsFetchingAssets] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [hasFetchedData, setHasFetchedData] = useState(false)
   
   // Searchable dropdown states
   const [searchTerm, setSearchTerm] = useState('')
@@ -74,33 +75,20 @@ function App() {
     }, 300)
   }
 
-  // Fetch asset data in auto mode
-  const fetchAssetDataHandler = async () => {
-    if (!selectedAsset) {
-      alert('Please select an asset');
-      return;
-    }
-
+  // Fetch ALL assets data from Rate-X (Auto mode)
+  const fetchAllAssetsHandler = async () => {
     setIsFetchingAssets(true);
     setFetchError(null);
     
     try {
-      const data = await fetchAssetData(selectedAsset);
-      setAutoData(data);
+      const assets = await fetchAllAssets();
+      setAvailableAssets(assets);
+      setHasFetchedData(true);
       
-      // Calculate immediately with the fetched data
-      const leverageNum = data.leverage || 0;
-      const apyNum = (data.apy || 0) / 100;
-      const maturityDaysNum = data.maturityDays || 0;
-      
-      if (leverageNum > 0 && maturityDaysNum > 0) {
-        const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
-        const netResult = grossResult * 0.995;
-        setYieldReturn({ gross: grossResult, net: netResult });
-      }
+      // Don't auto-select or auto-calculate - user will select and calculate manually
       
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch asset data';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch assets data';
       setFetchError(errorMessage);
       alert(`Error: ${errorMessage}\n\nMake sure the backend server is running on http://localhost:3001`);
     } finally {
@@ -108,32 +96,53 @@ function App() {
     }
   };
 
-  // Load all available assets on mount (for auto mode)
-  useEffect(() => {
-    if (mode === 'auto') {
-      const loadAssets = async () => {
-        try {
-          const assets = await fetchAllAssets();
-          setAvailableAssets(assets);
-          
-          // If we have assets, auto-select the first one and fetch its data
-          if (assets.length > 0 && !selectedAsset) {
-            setSelectedAsset(assets[0].asset);
-          }
-        } catch (error) {
-          console.error('Failed to load assets:', error);
-          setFetchError('Could not connect to backend API. Make sure the server is running.');
-        }
-      };
-      
-      loadAssets();
+  // Calculate yield for selected asset (Auto mode)
+  const calculateAutoYield = () => {
+    if (!hasFetchedData) {
+      alert('Please click "Fetch" first to get asset data from Rate-X');
+      return;
     }
-  }, [mode]);
 
+    if (!selectedAsset) {
+      alert('Please select an asset from the dropdown');
+      return;
+    }
+
+    // Find the selected asset in the fetched data
+    const assetData = availableAssets.find(a => a.asset === selectedAsset);
+    
+    if (!assetData) {
+      alert('Selected asset not found. Please fetch data again.');
+      return;
+    }
+
+    setAutoData(assetData);
+    setIsCalculating(true);
+
+    setTimeout(() => {
+      const leverageNum = assetData.leverage || 0;
+      const apyNum = (assetData.apy || 0) / 100;
+      const maturityDaysNum = assetData.maturityDays || 0;
+      
+      if (leverageNum > 0 && maturityDaysNum > 0) {
+        const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
+        const netResult = grossResult * 0.995;
+        setYieldReturn({ gross: grossResult, net: netResult });
+      } else {
+        alert('Invalid asset data. Please try fetching again.');
+      }
+      
+      setIsCalculating(false);
+    }, 300);
+  };
+
+  // No auto-loading on mount - user clicks "Fetch" button
+  
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       if (mode === 'auto') {
-        fetchAssetDataHandler();
+        // In auto mode, Enter key calculates (user must fetch first)
+        calculateAutoYield();
       } else {
         calculateYieldReturn();
       }
@@ -282,7 +291,14 @@ function App() {
                 {/* Mode Toggle */}
                 <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                   <button
-                    onClick={() => { setMode('manual'); setYieldReturn(null); }}
+                    onClick={() => { 
+                      setMode('manual'); 
+                      setYieldReturn(null); 
+                      setAvailableAssets([]);
+                      setSelectedAsset('');
+                      setAutoData(null);
+                      setHasFetchedData(false);
+                    }}
                     style={{
                       padding: '0.5rem 1.5rem',
                       borderRadius: '0.5rem',
@@ -300,7 +316,13 @@ function App() {
                     📝 Manual
                   </button>
                   <button
-                    onClick={() => { setMode('auto'); setYieldReturn(null); }}
+                    onClick={() => { 
+                      setMode('auto'); 
+                      setYieldReturn(null); 
+                      setLeverage('');
+                      setApy('');
+                      setMaturityDays('');
+                    }}
                     style={{
                       padding: '0.5rem 1.5rem',
                       borderRadius: '0.5rem',
@@ -390,16 +412,22 @@ function App() {
                       <div ref={dropdownRef} style={{ position: 'relative' }}>
                         {/* Click area to open dropdown */}
                         <div
-                          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                          onClick={() => {
+                            if (!hasFetchedData) {
+                              alert('Please click "Fetch" button first to load assets from Rate-X');
+                              return;
+                            }
+                            setIsDropdownOpen(!isDropdownOpen);
+                          }}
                           style={{
                             width: '100%',
                             padding: '0.75rem',
                             borderRadius: '0.5rem',
                             border: '2px solid rgba(168, 85, 247, 0.3)',
                             background: 'rgba(255, 255, 255, 0.05)',
-                            color: 'white',
+                            color: hasFetchedData ? 'white' : 'rgba(255, 255, 255, 0.5)',
                             fontSize: '1rem',
-                            cursor: 'pointer',
+                            cursor: hasFetchedData ? 'pointer' : 'not-allowed',
                             backdropFilter: 'blur(10px)',
                             transition: 'all 0.3s ease',
                             display: 'flex',
@@ -407,14 +435,16 @@ function App() {
                             alignItems: 'center'
                           }}
                         >
-                          <span>{selectedAsset}</span>
+                          <span>
+                            {!hasFetchedData ? 'Click "Fetch" button first' : (selectedAsset || 'Select an asset')}
+                          </span>
                           <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-                            {isDropdownOpen ? '▲' : '▼'}
+                            {hasFetchedData && (isDropdownOpen ? '▲' : '▼')}
                           </span>
                         </div>
 
                         {/* Dropdown */}
-                        {isDropdownOpen && (
+                        {isDropdownOpen && hasFetchedData && (
                           <div style={{
                             position: 'absolute',
                             top: '100%',
@@ -498,7 +528,7 @@ function App() {
                         )}
                       </div>
                       <p className="input-hint" style={{opacity: 0.7, fontSize: '0.75rem', fontStyle: 'italic', marginTop: '0.5rem'}}>
-                        💡 Click to open, type to filter (case-insensitive)
+                        💡 Fetch data first, then select asset from dropdown
                       </p>
                     </div>
 
@@ -512,7 +542,7 @@ function App() {
                         border: '1px solid rgba(139, 92, 246, 0.3)'
                       }}>
                         <h3 style={{ color: '#a855f7', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                          Fetched Data from Rate-X
+                          Selected Asset: {autoData.asset}
                         </h3>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem', color: 'white' }}>
                           <div><strong>Leverage:</strong> {autoData.leverage}x</div>
@@ -537,31 +567,68 @@ function App() {
                       </div>
                     )}
 
-                    <button
-                      onClick={fetchAssetDataHandler}
-                      disabled={isFetchingAssets}
-                      className={`calculate-button ${isFetchingAssets ? 'calculating' : ''}`}
-                      style={{
-                        background: isFetchingAssets 
-                          ? 'rgba(139, 92, 246, 0.5)' 
-                          : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
-                      }}
-                    >
-                      {isFetchingAssets ? (
-                        <span className="loading-content">
-                          <svg className="spinner" viewBox="0 0 24 24">
-                            <circle className="spinner-circle" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                            <path className="spinner-path" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Fetching from Rate-X...
-                        </span>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-4 h-4" style={{ display: 'inline', marginRight: '0.5rem' }} />
-                          Fetch & Calculate
-                        </>
-                      )}
-                    </button>
+                    {/* Fetch and Calculate Buttons - Side by Side */}
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                      {/* Fetch Button */}
+                      <button
+                        onClick={fetchAllAssetsHandler}
+                        disabled={isFetchingAssets}
+                        className={`calculate-button ${isFetchingAssets ? 'calculating' : ''}`}
+                        style={{
+                          flex: 1,
+                          padding: '0.875rem 1.5rem',
+                          fontSize: '1rem',
+                          background: isFetchingAssets 
+                            ? 'rgba(139, 92, 246, 0.5)' 
+                            : 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        }}
+                      >
+                        {isFetchingAssets ? (
+                          <span className="loading-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <RefreshCw className="w-4 h-4 animate-spin" style={{ marginRight: '0.5rem' }} />
+                            Fetching...
+                          </span>
+                        ) : (
+                          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <RefreshCw className="w-4 h-4" style={{ marginRight: '0.5rem' }} />
+                            Fetch
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Calculate Button */}
+                      <button
+                        onClick={calculateAutoYield}
+                        disabled={isCalculating || !hasFetchedData || !selectedAsset}
+                        className={`calculate-button ${isCalculating ? 'calculating' : ''}`}
+                        style={{
+                          flex: 1,
+                          padding: '0.875rem 1.5rem',
+                          fontSize: '1rem',
+                          background: (!hasFetchedData || !selectedAsset)
+                            ? 'rgba(139, 92, 246, 0.3)'
+                            : isCalculating 
+                              ? 'rgba(139, 92, 246, 0.5)' 
+                              : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                          cursor: (!hasFetchedData || !selectedAsset) ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {isCalculating ? (
+                          <span className="loading-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg className="spinner" viewBox="0 0 24 24" style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }}>
+                              <circle className="spinner-circle" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                              <path className="spinner-path" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Calculating...
+                          </span>
+                        ) : (
+                          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Calculator className="w-4 h-4" style={{ marginRight: '0.5rem' }} />
+                            Calculate
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   </>
                 )}
 

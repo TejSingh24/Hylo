@@ -479,8 +479,10 @@ function App() {
                             />
                             {/* Options list */}
                             <div style={{
-                              maxHeight: '250px',
-                              overflowY: 'auto'
+                              maxHeight: '120px',
+                              overflowY: 'auto',
+                              overflowX: 'hidden',
+                              paddingBottom: '0.5rem'
                             }}>
                               {availableAssets
                                 .filter(asset => 
@@ -497,10 +499,10 @@ function App() {
                                     style={{
                                       padding: '0.75rem',
                                       cursor: 'pointer',
-                                      borderBottom: '1px solid rgba(168, 85, 247, 0.1)',
                                       color: 'white',
                                       background: selectedAsset === asset.asset ? 'rgba(168, 85, 247, 0.2)' : 'transparent',
-                                      transition: 'background 0.2s ease'
+                                      transition: 'background 0.2s ease',
+                                      marginBottom: '2px'
                                     }}
                                     onMouseEnter={(e) => {
                                       if (selectedAsset !== asset.asset) {

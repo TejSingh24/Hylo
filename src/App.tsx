@@ -60,16 +60,23 @@ function App() {
             </div>
 
             {/* Screenshot with Annotations */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl mb-16" style={{marginBottom:0,}}>
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl mb-16" style={{marginBottom:0}}>
               <h3 className="text-white font-semibold mb-4 text-center">Reference Card Example</h3>
 
               {/* Card Screenshot Container */}
-              <div className="card-screenshot-container">
-                <img src="/RateX-Card.jpg" alt="RateX Card Example" className="w-full max-w-sm rounded-lg shadow-lg"  style={{marginLeft: 110, marginTop: 10, marginRight: 110, marginBottom: 10}}/>
-                {/* Highlights */}
-                <div className="highlight highlight-yield-exposure" />
-                <div className="highlight highlight-apy" />
-                <div className="highlight highlight-maturity" />
+              <div className="flex flex-col items-center justify-center w-full"style={{marginBottom:10, marginTop:10}}>
+                <div className="relative w-full max-w-[400px]"> {/* Fixed width container */}
+                  <img 
+                    src="/RateX-Card.jpg" 
+                    alt="RateX Card Example" 
+                    className="w-full h-auto rounded-lg shadow-lg"
+                    style={{ display: 'block', margin: '0 auto' }} 
+                  />
+                  {/* Highlights */}
+                  <div className="highlight highlight-yield-exposure" />
+                  <div className="highlight highlight-apy" />
+                  <div className="highlight highlight-maturity" />
+                </div>
               </div>
             </div>
 

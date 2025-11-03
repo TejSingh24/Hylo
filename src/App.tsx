@@ -49,7 +49,7 @@ function App() {
             {/* Header Card */}
             <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl" style={{marginBottom:10}}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg" style={{margin:3}}>
+                <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg" style={{margin:7}}>
                   <Info className="w-5 h-5 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-white">Hylo Asset Yield Calculator for Rate-X</h2>

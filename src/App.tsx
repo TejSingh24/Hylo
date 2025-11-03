@@ -1,25 +1,68 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import './components/CardHighlights.css'
-import { Info, TrendingUp, Clock, Percent, Calculator } from 'lucide-react';
+import { Info, TrendingUp, Clock, Percent, Calculator, Zap, RefreshCw } from 'lucide-react';
+import { fetchAllAssets, fetchAssetData, type AssetData } from './services/ratexApi';
 
 function App() {
+  // Calculator mode: 'manual' or 'auto'
+  const [mode, setMode] = useState<'manual' | 'auto'>('manual')
+  
+  // Manual mode states
   const [leverage, setLeverage] = useState('')
   const [apy, setApy] = useState('')
   const [maturityDays, setMaturityDays] = useState('')
+  
+  // Auto mode states
+  const [availableAssets, setAvailableAssets] = useState<AssetData[]>([])
+  const [selectedAsset, setSelectedAsset] = useState<string>('xSOL')
+  const [autoData, setAutoData] = useState<AssetData | null>(null)
+  const [isFetchingAssets, setIsFetchingAssets] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  
+  // Searchable dropdown states
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  
+  // Shared states
   const [yieldReturn, setYieldReturn] = useState<{ gross: number; net: number } | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+        setSearchTerm('');
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const calculateYieldReturn = () => {
     setIsCalculating(true)
 
     setTimeout(() => {
-      const leverageNum = parseFloat(leverage)
-      const apyNum = parseFloat(apy) / 100 // Converting percentage to decimal
-      const maturityDaysNum = parseFloat(maturityDays)
+      // Get values based on mode
+      let leverageNum: number;
+      let apyNum: number;
+      let maturityDaysNum: number;
+
+      if (mode === 'auto' && autoData) {
+        leverageNum = autoData.leverage || 0;
+        apyNum = (autoData.apy || 0) / 100;
+        maturityDaysNum = autoData.maturityDays || 0;
+      } else {
+        leverageNum = parseFloat(leverage);
+        apyNum = parseFloat(apy) / 100;
+        maturityDaysNum = parseFloat(maturityDays);
+      }
 
       if (isNaN(leverageNum) || isNaN(apyNum) || isNaN(maturityDaysNum)) {
-        alert('Please enter valid numbers')
+        alert('Please enter valid numbers or fetch asset data')
         setIsCalculating(false)
         return
       }
@@ -31,9 +74,69 @@ function App() {
     }, 300)
   }
 
+  // Fetch asset data in auto mode
+  const fetchAssetDataHandler = async () => {
+    if (!selectedAsset) {
+      alert('Please select an asset');
+      return;
+    }
+
+    setIsFetchingAssets(true);
+    setFetchError(null);
+    
+    try {
+      const data = await fetchAssetData(selectedAsset);
+      setAutoData(data);
+      
+      // Calculate immediately with the fetched data
+      const leverageNum = data.leverage || 0;
+      const apyNum = (data.apy || 0) / 100;
+      const maturityDaysNum = data.maturityDays || 0;
+      
+      if (leverageNum > 0 && maturityDaysNum > 0) {
+        const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
+        const netResult = grossResult * 0.995;
+        setYieldReturn({ gross: grossResult, net: netResult });
+      }
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch asset data';
+      setFetchError(errorMessage);
+      alert(`Error: ${errorMessage}\n\nMake sure the backend server is running on http://localhost:3001`);
+    } finally {
+      setIsFetchingAssets(false);
+    }
+  };
+
+  // Load all available assets on mount (for auto mode)
+  useEffect(() => {
+    if (mode === 'auto') {
+      const loadAssets = async () => {
+        try {
+          const assets = await fetchAllAssets();
+          setAvailableAssets(assets);
+          
+          // If we have assets, auto-select the first one and fetch its data
+          if (assets.length > 0 && !selectedAsset) {
+            setSelectedAsset(assets[0].asset);
+          }
+        } catch (error) {
+          console.error('Failed to load assets:', error);
+          setFetchError('Could not connect to backend API. Make sure the server is running.');
+        }
+      };
+      
+      loadAssets();
+    }
+  }, [mode]);
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      calculateYieldReturn()
+      if (mode === 'auto') {
+        fetchAssetDataHandler();
+      } else {
+        calculateYieldReturn();
+      }
     }
   }
 
@@ -175,70 +278,292 @@ function App() {
               <div className="card-header">
                 <h1>Yield Calculator</h1>
                 <p className="subtitle">Calculate your yield return</p>
+                
+                {/* Mode Toggle */}
+                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                  <button
+                    onClick={() => { setMode('manual'); setYieldReturn(null); }}
+                    style={{
+                      padding: '0.5rem 1.5rem',
+                      borderRadius: '0.5rem',
+                      border: mode === 'manual' ? '2px solid #a855f7' : '2px solid transparent',
+                      background: mode === 'manual' 
+                        ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' 
+                        : 'rgba(255, 255, 255, 0.1)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontWeight: mode === 'manual' ? 'bold' : 'normal',
+                      transition: 'all 0.3s ease',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    📝 Manual
+                  </button>
+                  <button
+                    onClick={() => { setMode('auto'); setYieldReturn(null); }}
+                    style={{
+                      padding: '0.5rem 1.5rem',
+                      borderRadius: '0.5rem',
+                      border: mode === 'auto' ? '2px solid #a855f7' : '2px solid transparent',
+                      background: mode === 'auto' 
+                        ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' 
+                        : 'rgba(255, 255, 255, 0.1)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontWeight: mode === 'auto' ? 'bold' : 'normal',
+                      transition: 'all 0.3s ease',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    <Zap className="w-4 h-4" style={{ display: 'inline', marginRight: '0.25rem' }} /> Auto
+                  </button>
+                </div>
               </div>
 
               {/* Form content */}
               <div className="card-content">
-                {/* Leverage Input */}
-                <div className="input-group">
-                  <label htmlFor="leverage">Leverage</label>
-                  <input
-                    id="leverage"
-                    type="number"
-                    step="0.01"
-                    value={leverage}
-                    onChange={(e) => setLeverage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Enter leverage"
-                  />
-                </div>
+                {mode === 'manual' ? (
+                  <>
+                    {/* Manual Mode Inputs */}
+                    <div className="input-group">
+                      <label htmlFor="leverage">Leverage</label>
+                      <input
+                        id="leverage"
+                        type="number"
+                        step="0.01"
+                        value={leverage}
+                        onChange={(e) => setLeverage(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Enter leverage"
+                      />
+                    </div>
 
-                {/* APY Input */}
-                <div className="input-group">
-                  <label htmlFor="apy">APY (%)</label>
-                  <input
-                    id="apy"
-                    type="number"
-                    step="0.01"
-                    value={apy}
-                    onChange={(e) => setApy(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Enter APY percentage"
-                  />
-                </div>
+                    <div className="input-group">
+                      <label htmlFor="apy">APY (%)</label>
+                      <input
+                        id="apy"
+                        type="number"
+                        step="0.01"
+                        value={apy}
+                        onChange={(e) => setApy(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Enter APY percentage"
+                      />
+                    </div>
 
-                {/* Maturity Days Input */}
-                <div className="input-group">
-                  <label htmlFor="maturityDays">Maturity Days</label>
-                  <input
-                    id="maturityDays"
-                    type="number"
-                    value={maturityDays}
-                    onChange={(e) => setMaturityDays(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Enter maturity days"
-                  />
-                  <p className="input-hint" style={{opacity: 0.7, fontSize: '0.75rem', fontStyle: 'italic'}}>💡 Enter 1 to calculate daily yield return</p>
-                </div>
+                    <div className="input-group">
+                      <label htmlFor="maturityDays">Maturity Days</label>
+                      <input
+                        id="maturityDays"
+                        type="number"
+                        value={maturityDays}
+                        onChange={(e) => setMaturityDays(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Enter maturity days"
+                      />
+                      <p className="input-hint" style={{opacity: 0.7, fontSize: '0.75rem', fontStyle: 'italic'}}>💡 Enter 1 to calculate daily yield return</p>
+                    </div>
 
-                {/* Calculate Button */}
-                <button
-                  onClick={calculateYieldReturn}
-                  disabled={isCalculating}
-                  className={`calculate-button ${isCalculating ? 'calculating' : ''}`}
-                >
-                  {isCalculating ? (
-                    <span className="loading-content">
-                      <svg className="spinner" viewBox="0 0 24 24">
-                        <circle className="spinner-circle" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                        <path className="spinner-path" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Calculating...
-                    </span>
-                  ) : (
-                    'Calculate Yield Return'
-                  )}
-                </button>
+                    <button
+                      onClick={calculateYieldReturn}
+                      disabled={isCalculating}
+                      className={`calculate-button ${isCalculating ? 'calculating' : ''}`}
+                    >
+                      {isCalculating ? (
+                        <span className="loading-content">
+                          <svg className="spinner" viewBox="0 0 24 24">
+                            <circle className="spinner-circle" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                            <path className="spinner-path" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Calculating...
+                        </span>
+                      ) : (
+                        'Calculate Yield Return'
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* Auto Mode */}
+                    <div className="input-group">
+                      <label htmlFor="asset-select">Select Asset</label>
+                      <div ref={dropdownRef} style={{ position: 'relative' }}>
+                        {/* Click area to open dropdown */}
+                        <div
+                          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            borderRadius: '0.5rem',
+                            border: '2px solid rgba(168, 85, 247, 0.3)',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            color: 'white',
+                            fontSize: '1rem',
+                            cursor: 'pointer',
+                            backdropFilter: 'blur(10px)',
+                            transition: 'all 0.3s ease',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <span>{selectedAsset}</span>
+                          <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>
+                            {isDropdownOpen ? '▲' : '▼'}
+                          </span>
+                        </div>
+
+                        {/* Dropdown */}
+                        {isDropdownOpen && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            marginTop: '0.25rem',
+                            background: 'rgba(30, 27, 75, 0.95)',
+                            border: '2px solid rgba(168, 85, 247, 0.3)',
+                            borderRadius: '0.5rem',
+                            backdropFilter: 'blur(10px)',
+                            zIndex: 1000,
+                            overflow: 'hidden'
+                          }}>
+                            {/* Search input inside dropdown */}
+                            <input
+                              type="text"
+                              placeholder="Type to filter..."
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              autoFocus
+                              style={{
+                                width: '100%',
+                                padding: '0.75rem',
+                                border: 'none',
+                                borderBottom: '1px solid rgba(168, 85, 247, 0.3)',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                color: 'white',
+                                fontSize: '0.875rem',
+                                outline: 'none'
+                              }}
+                            />
+                            {/* Options list */}
+                            <div style={{
+                              maxHeight: '250px',
+                              overflowY: 'auto'
+                            }}>
+                              {availableAssets
+                                .filter(asset => 
+                                  asset.asset.toLowerCase().includes(searchTerm.toLowerCase())
+                                )
+                                .map(asset => (
+                                  <div
+                                    key={asset.asset}
+                                    onClick={() => {
+                                      setSelectedAsset(asset.asset);
+                                      setSearchTerm('');
+                                      setIsDropdownOpen(false);
+                                    }}
+                                    style={{
+                                      padding: '0.75rem',
+                                      cursor: 'pointer',
+                                      borderBottom: '1px solid rgba(168, 85, 247, 0.1)',
+                                      color: 'white',
+                                      background: selectedAsset === asset.asset ? 'rgba(168, 85, 247, 0.2)' : 'transparent',
+                                      transition: 'background 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (selectedAsset !== asset.asset) {
+                                        e.currentTarget.style.background = 'rgba(168, 85, 247, 0.1)';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (selectedAsset !== asset.asset) {
+                                        e.currentTarget.style.background = 'transparent';
+                                      }
+                                    }}
+                                  >
+                                    {asset.asset}
+                                  </div>
+                                ))}
+                              {availableAssets.filter(asset => 
+                                asset.asset.toLowerCase().includes(searchTerm.toLowerCase())
+                              ).length === 0 && (
+                                <div style={{ padding: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', textAlign: 'center' }}>
+                                  No assets found
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <p className="input-hint" style={{opacity: 0.7, fontSize: '0.75rem', fontStyle: 'italic', marginTop: '0.5rem'}}>
+                        💡 Click to open, type to filter (case-insensitive)
+                      </p>
+                    </div>
+
+                    {/* Display fetched data */}
+                    {autoData && (
+                      <div style={{
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        borderRadius: '0.5rem',
+                        padding: '1rem',
+                        marginBottom: '1rem',
+                        border: '1px solid rgba(139, 92, 246, 0.3)'
+                      }}>
+                        <h3 style={{ color: '#a855f7', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                          Fetched Data from Rate-X
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem', color: 'white' }}>
+                          <div><strong>Leverage:</strong> {autoData.leverage}x</div>
+                          <div><strong>APY:</strong> {autoData.apy}%</div>
+                          <div><strong>Maturity:</strong> {autoData.maturityDays} days</div>
+                          <div><strong>Asset Boost:</strong> {autoData.assetBoost}x</div>
+                          <div style={{ gridColumn: '1 / -1' }}><strong>RateX Boost:</strong> {autoData.ratexBoost}x</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {fetchError && (
+                      <div style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        borderRadius: '0.5rem',
+                        padding: '1rem',
+                        marginBottom: '1rem',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#fca5a5'
+                      }}>
+                        <strong>Error:</strong> {fetchError}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={fetchAssetDataHandler}
+                      disabled={isFetchingAssets}
+                      className={`calculate-button ${isFetchingAssets ? 'calculating' : ''}`}
+                      style={{
+                        background: isFetchingAssets 
+                          ? 'rgba(139, 92, 246, 0.5)' 
+                          : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
+                      }}
+                    >
+                      {isFetchingAssets ? (
+                        <span className="loading-content">
+                          <svg className="spinner" viewBox="0 0 24 24">
+                            <circle className="spinner-circle" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                            <path className="spinner-path" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Fetching from Rate-X...
+                        </span>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" style={{ display: 'inline', marginRight: '0.5rem' }} />
+                          Fetch & Calculate
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
 
                 {/* Result Display */}
                 {yieldReturn !== null && (

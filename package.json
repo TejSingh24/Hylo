@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "cd server && npm install && npm start",
+    "dev:all": "npm run dev:server & npm run dev",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup": "cd server && npm install"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.16",

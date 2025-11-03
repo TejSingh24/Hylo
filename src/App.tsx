@@ -7,7 +7,7 @@ function App() {
   const [leverage, setLeverage] = useState('')
   const [apy, setApy] = useState('')
   const [maturityDays, setMaturityDays] = useState('')
-  const [yieldReturn, setYieldReturn] = useState<number | null>(null)
+  const [yieldReturn, setYieldReturn] = useState<{ gross: number; net: number } | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
 
   const calculateYieldReturn = () => {
@@ -24,8 +24,9 @@ function App() {
         return
       }
 
-      const result = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365)
-      setYieldReturn(result * 100) // Converting to percentage
+      const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100
+      const netResult = grossResult * 0.995 // Platform takes 0.5% of yield
+      setYieldReturn({ gross: grossResult, net: netResult })
       setIsCalculating(false)
     }, 300)
   }
@@ -243,8 +244,45 @@ function App() {
                 {yieldReturn !== null && (
                   <div className="result-container">
                     <div className="result-card">
-                      <p className="result-label">Yield Return</p>
-                      <p className="result-value">{yieldReturn.toFixed(2)}%</p>
+                      <div className="grid grid-cols-2 gap-6">
+                        {/* Gross Yield */}
+                        <div className="text-center">
+                          <p className="result-label mb-2">Gross Yield</p>
+                          <p className="result-value gross-yield" 
+                             style={{
+                               background: 'linear-gradient(to right, #4f46e5, #7c3aed)',
+                               WebkitBackgroundClip: 'text',
+                               WebkitTextFillColor: 'transparent',
+                               backgroundClip: 'text',
+                               fontWeight: '700',
+                               textShadow: '0 0 1px rgba(124, 58, 237, 0.1)'
+                             }}>
+                            {yieldReturn.gross.toFixed(2)}%
+                          </p>
+                        </div>
+                        {/* Net Yield */}
+                        <div className="text-center">
+                          <p className="result-label mb-2 flex items-center justify-center gap-2">
+                            Net Yield
+                            <div className="relative group">
+                              <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-6 py-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                &nbsp;&nbsp;0.5% of yield is taken as fees by RateX&nbsp;&nbsp;
+                              </div>
+                            </div>
+                          </p>
+                          <p className="result-value net-yield"
+                             style={{
+                               background: 'linear-gradient(to right, #f59e0b, #ef4444)',
+                               WebkitBackgroundClip: 'text',
+                               WebkitTextFillColor: 'transparent',
+                               backgroundClip: 'text',
+                               opacity: '0.85'
+                             }}>
+                            {yieldReturn.net.toFixed(2)}%
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import './components/CardHighlights.css'
 import { Info, TrendingUp, Clock, Percent, Calculator, Zap, RefreshCw } from 'lucide-react';
-import { fetchAllAssets, type AssetData } from './services/ratexApi';
+import { refreshCache, type AssetData } from './services/ratexApi';
 
 function App() {
   // Calculator mode: 'manual' or 'auto'
@@ -25,10 +25,18 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
   
   // Shared states
   const [yieldReturn, setYieldReturn] = useState<{ gross: number; net: number } | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
+  
+  // Scroll to result when it appears
+  useEffect(() => {
+    if (yieldReturn !== null && resultRef.current) {
+      resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [yieldReturn]);
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -76,12 +84,14 @@ function App() {
   }
 
   // Fetch ALL assets data from Rate-X (Auto mode)
+  // Always fetches fresh data from Rate-X, bypassing cache
   const fetchAllAssetsHandler = async () => {
     setIsFetchingAssets(true);
     setFetchError(null);
     
     try {
-      const assets = await fetchAllAssets();
+      // Use refreshCache to force fresh scrape from Rate-X
+      const assets = await refreshCache();
       setAvailableAssets(assets);
       setHasFetchedData(true);
       
@@ -636,7 +646,7 @@ function App() {
 
                 {/* Result Display */}
                 {yieldReturn !== null && (
-                  <div className="result-container">
+                  <div ref={resultRef} className="result-container">
                     <div className="result-card">
                       <div className="grid grid-cols-2 gap-6">
                         {/* Gross Yield */}

@@ -1,12 +1,16 @@
 name: Scrape RateX Data
 
 on:
-  # Run every 5 minutes automatically
+  # Run every 5 minutes automatically (only works on default branch)
   schedule:
     - cron: '*/5 * * * *'  # Every 5 minutes
   
   # Allow manual trigger from GitHub UI or API
   workflow_dispatch:
+  
+  # Trigger on push for testing
+  push:
+    branches: [ web_scraping_start, main ]
 
 jobs:
   scrape:

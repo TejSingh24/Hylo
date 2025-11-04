@@ -1,10 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 
-// Force single-process mode for serverless
-chromium.setHeadlessMode = true;
-chromium.setGraphicsMode = false;
-
 /**
  * Scrapes asset data from Rate-X leverage page
  * @param {string} assetName - The name of the asset to scrape (e.g., 'HyloSOL', 'HYusd', 'sHYUSD', 'xSOL')
@@ -17,12 +13,7 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
     console.log(`Starting scraper for asset: ${assetName}`);
     
     browser = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        '--single-process',
-        '--no-zygote',
-        '--disable-dev-shm-usage',
-      ],
+      args: chromium.args,
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
@@ -216,12 +207,7 @@ export async function scrapeAllAssets() {
     console.log('🚀 Starting optimized scraper - fetching ALL assets in one go!');
     
     browser = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        '--single-process',
-        '--no-zygote',
-        '--disable-dev-shm-usage',
-      ],
+      args: chromium.args,
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,

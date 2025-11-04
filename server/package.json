@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "hylo-ratex-scraper",
   "version": "1.0.0",
   "description": "Backend scraper service for Rate-X asset data",
@@ -11,6 +11,7 @@
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "puppeteer": "^21.6.0"
+    "@sparticuz/chromium": "119.0.2",
+    "puppeteer-core": "21.5.2"
   }
 }

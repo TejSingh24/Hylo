@@ -12,6 +12,7 @@ function App() {
   const [leverage, setLeverage] = useState('')
   const [apy, setApy] = useState('')
   const [maturityDays, setMaturityDays] = useState('')
+  const [assetBoostManual, setAssetBoostManual] = useState('')
   
   // Auto mode states
   const [availableAssets, setAvailableAssets] = useState<AssetData[]>([])
@@ -21,6 +22,7 @@ function App() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [hasFetchedData, setHasFetchedData] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
+  const [depositAmount, setDepositAmount] = useState<string>('1') // Default $1
   
   // Editable states for auto mode
   const [isEditingLeverage, setIsEditingLeverage] = useState(false)
@@ -42,7 +44,7 @@ function App() {
   const hasCheckedFreshnessRef = useRef(false) // Prevent double-trigger in dev mode
   
   // Shared states
-  const [yieldReturn, setYieldReturn] = useState<{ gross: number; net: number } | null>(null)
+  const [yieldReturn, setYieldReturn] = useState<{ gross: number; net: number; totalPoints: number } | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
   
   // Wake up backend on page load (only once)
@@ -125,7 +127,13 @@ function App() {
 
       const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100
       const netResult = grossResult * 0.995 // Platform takes 0.5% of yield
-      setYieldReturn({ gross: grossResult, net: netResult })
+      
+      // Calculate Expected Total Points: Leverage × Asset Boost × Deposit Amount
+      const assetBoost = mode === 'auto' && autoData ? (autoData.assetBoost || 0) : parseFloat(assetBoostManual) || 0;
+      const depositAmountNum = parseFloat(depositAmount) || 1;
+      const totalPoints = leverageNum * assetBoost * depositAmountNum;
+      
+      setYieldReturn({ gross: grossResult, net: netResult, totalPoints })
       setIsCalculating(false)
     }, 300)
   }
@@ -151,6 +159,19 @@ function App() {
       return `${diffDays} days ago`;
     } catch {
       return 'unknown';
+    }
+  };
+
+  // Helper function to format large numbers with K/M/B suffixes
+  const formatLargeNumber = (num: number): string => {
+    if (num < 1000) {
+      return num.toFixed(2);
+    } else if (num < 1000000) {
+      return (num / 1000).toFixed(2) + 'K';
+    } else if (num < 1000000000) {
+      return (num / 1000000).toFixed(2) + 'M';
+    } else {
+      return (num / 1000000000).toFixed(2) + 'B';
     }
   };
 
@@ -199,7 +220,13 @@ function App() {
               if (leverageNum > 0 && maturityDaysNum > 0) {
                 const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
                 const netResult = grossResult * 0.995;
-                setYieldReturn({ gross: grossResult, net: netResult });
+                
+                // Calculate Expected Total Points
+                const assetBoost = updatedAssetData.assetBoost || 0;
+                const depositAmountNum = parseFloat(depositAmount) || 1;
+                const totalPoints = leverageNum * assetBoost * depositAmountNum;
+                
+                setYieldReturn({ gross: grossResult, net: netResult, totalPoints });
               }
               
               setIsCalculating(false);
@@ -285,7 +312,13 @@ function App() {
       if (leverageNum > 0 && maturityDaysNum > 0) {
         const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
         const netResult = grossResult * 0.995;
-        setYieldReturn({ gross: grossResult, net: netResult });
+        
+        // Calculate Expected Total Points
+        const assetBoost = assetData.assetBoost || 0;
+        const depositAmountNum = parseFloat(depositAmount) || 1;
+        const totalPoints = leverageNum * assetBoost * depositAmountNum;
+        
+        setYieldReturn({ gross: grossResult, net: netResult, totalPoints });
       } else {
         alert('Invalid asset data. Please try fetching again.');
       }
@@ -307,7 +340,13 @@ function App() {
       if (leverageNum > 0 && maturityDaysNum > 0) {
         const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
         const netResult = grossResult * 0.995;
-        setYieldReturn({ gross: grossResult, net: netResult });
+        
+        // Calculate Expected Total Points using editable values
+        const assetBoost = parseFloat(editableAssetBoost) || 0;
+        const depositAmountNum = parseFloat(depositAmount) || 1;
+        const totalPoints = leverageNum * assetBoost * depositAmountNum;
+        
+        setYieldReturn({ gross: grossResult, net: netResult, totalPoints });
       }
       
       setIsCalculating(false);
@@ -525,43 +564,93 @@ function App() {
                 {mode === 'manual' ? (
                   <>
                     {/* Manual Mode Inputs */}
-                    <div className="input-group">
-                      <label htmlFor="leverage">Leverage</label>
-                      <input
-                        id="leverage"
-                        type="number"
-                        step="0.01"
-                        value={leverage}
-                        onChange={(e) => setLeverage(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder="Enter leverage"
-                      />
+                    {/* Deposit Amount - Full Width */}
+                    <div className="input-group" style={{ marginBottom: '1rem' }}>
+                      <label htmlFor="manual-deposit-amount">Deposit Amount</label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{
+                          position: 'absolute',
+                          left: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          fontSize: '1rem',
+                          fontWeight: '500'
+                        }}>
+                          $
+                        </span>
+                        <input
+                          id="manual-deposit-amount"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(e.target.value)}
+                          placeholder="1"
+                          style={{
+                            paddingLeft: '1.75rem'
+                          }}
+                        />
+                      </div>
+                      <p className="input-hint" style={{opacity: 0.7, fontSize: '0.7rem', fontStyle: 'italic', marginTop: '0.25rem'}}>
+                        💡 For Expected Total Points calculation
+                      </p>
                     </div>
 
-                    <div className="input-group">
-                      <label htmlFor="apy">APY (%)</label>
-                      <input
-                        id="apy"
-                        type="number"
-                        step="0.01"
-                        value={apy}
-                        onChange={(e) => setApy(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder="Enter APY percentage"
-                      />
-                    </div>
+                    {/* Two Column Grid for Main Inputs */}
+                    <div className="grid grid-cols-2 gap-4" style={{ marginBottom: '1rem' }}>
+                      <div className="input-group" style={{ marginBottom: '0' }}>
+                        <label htmlFor="leverage">Leverage</label>
+                        <input
+                          id="leverage"
+                          type="number"
+                          step="0.01"
+                          value={leverage}
+                          onChange={(e) => setLeverage(e.target.value)}
+                          onKeyPress={handleKeyPress}
+                          placeholder="Enter leverage"
+                        />
+                      </div>
 
-                    <div className="input-group">
-                      <label htmlFor="maturityDays">Maturity Days</label>
-                      <input
-                        id="maturityDays"
-                        type="number"
-                        value={maturityDays}
-                        onChange={(e) => setMaturityDays(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder="Enter maturity days"
-                      />
-                      <p className="input-hint" style={{opacity: 0.7, fontSize: '0.75rem', fontStyle: 'italic'}}>💡 Enter 1 to calculate daily yield return</p>
+                      <div className="input-group" style={{ marginBottom: '0' }}>
+                        <label htmlFor="apy">APY (%)</label>
+                        <input
+                          id="apy"
+                          type="number"
+                          step="0.01"
+                          value={apy}
+                          onChange={(e) => setApy(e.target.value)}
+                          onKeyPress={handleKeyPress}
+                          placeholder="Enter APY"
+                        />
+                      </div>
+
+                      <div className="input-group" style={{ marginBottom: '0' }}>
+                        <label htmlFor="maturityDays">Maturity Days</label>
+                        <input
+                          id="maturityDays"
+                          type="number"
+                          value={maturityDays}
+                          onChange={(e) => setMaturityDays(e.target.value)}
+                          onKeyPress={handleKeyPress}
+                          placeholder="Enter days"
+                        />
+                        <p className="input-hint" style={{opacity: 0.7, fontSize: '0.65rem', fontStyle: 'italic', marginTop: '0.25rem'}}>💡 Use 1 for daily yield</p>
+                      </div>
+
+                      <div className="input-group" style={{ marginBottom: '0' }}>
+                        <label htmlFor="asset-boost">Asset Boost</label>
+                        <input
+                          id="asset-boost"
+                          type="number"
+                          step="0.1"
+                          value={assetBoostManual} 
+                          onChange={(e) => setAssetBoostManual(e.target.value)}
+                          onKeyPress={handleKeyPress}
+                          placeholder="e.g., 2"
+                        />
+                        <p className="input-hint" style={{opacity: 0.7, fontSize: '0.65rem', fontStyle: 'italic', marginTop: '0.25rem'}}>💡 For Exp. Points</p>
+                      </div>
                     </div>
 
                     <button
@@ -585,6 +674,39 @@ function App() {
                 ) : (
                   <>
                     {/* Auto Mode */}
+                    {/* Deposit Amount Input */}
+                    <div className="input-group">
+                      <label htmlFor="deposit-amount">Deposit Amount</label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{
+                          position: 'absolute',
+                          left: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          fontSize: '1rem',
+                          fontWeight: '500'
+                        }}>
+                          $
+                        </span>
+                        <input
+                          id="deposit-amount"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(e.target.value)}
+                          placeholder="1"
+                          style={{
+                            paddingLeft: '1.75rem'
+                          }}
+                        />
+                      </div>
+                      <p className="input-hint" style={{opacity: 0.7, fontSize: '0.75rem', fontStyle: 'italic', marginTop: '0.5rem'}}>
+                        💡 Enter deposit amount to calculate Expected Total Points
+                      </p>
+                    </div>
+
                     <div className="input-group">
                       <label htmlFor="asset-select">Select Asset</label>
                       <div ref={dropdownRef} style={{ position: 'relative' }}>
@@ -1072,6 +1194,37 @@ function App() {
                 {yieldReturn !== null && (
                   <div ref={resultRef} className="result-container">
                     <div className="result-card">
+                      {/* Exp. Points - Full Width Row */}
+                      <div className="text-center mb-6">
+                        <p className="result-label mb-2 flex items-center justify-center gap-2">
+                          Exp. Points
+                          <div className="relative group">
+                            <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                                 style={{
+                                   whiteSpace: 'normal',
+                                   width: '150px',
+                                   textAlign: 'center',
+                                   lineHeight: '1.5'
+                                 }}>
+                              Changes with Asset Price Changes
+                            </div>
+                          </div>
+                        </p>
+                        <p className="result-value"
+                           style={{
+                             background: 'linear-gradient(to right, #06b6d4, #3b82f6)',
+                             WebkitBackgroundClip: 'text',
+                             WebkitTextFillColor: 'transparent',
+                             backgroundClip: 'text',
+                             fontWeight: '700',
+                             display: 'inline-block'
+                           }}>
+                          {formatLargeNumber(yieldReturn.totalPoints)}
+                        </p>
+                      </div>
+                      
+                      {/* Gross Yield and Net Yield - Two Columns */}
                       <div className="grid grid-cols-2 gap-6">
                         {/* Gross Yield */}
                         <div className="text-center">
@@ -1083,7 +1236,8 @@ function App() {
                                WebkitTextFillColor: 'transparent',
                                backgroundClip: 'text',
                                fontWeight: '700',
-                               textShadow: '0 0 1px rgba(124, 58, 237, 0.1)'
+                               textShadow: '0 0 1px rgba(124, 58, 237, 0.1)',
+                               display: 'inline-block'
                              }}>
                             {yieldReturn.gross.toFixed(2)}%
                           </p>
@@ -1094,8 +1248,14 @@ function App() {
                             Net Yield
                             <div className="relative group">
                               <Info className="w-4 h-4 text-gray-400 cursor-help" />
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-6 py-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                                &nbsp;&nbsp;0.5% of yield is taken as fees by RateX&nbsp;&nbsp;
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                                   style={{
+                                     whiteSpace: 'normal',
+                                     width: '140px',
+                                     textAlign: 'center',
+                                     lineHeight: '1.4'
+                                   }}>
+                                0.5% of yield is taken as fees by RateX
                               </div>
                             </div>
                           </p>
@@ -1105,7 +1265,8 @@ function App() {
                                WebkitBackgroundClip: 'text',
                                WebkitTextFillColor: 'transparent',
                                backgroundClip: 'text',
-                               opacity: '0.85'
+                               opacity: '0.85',
+                               display: 'inline-block'
                              }}>
                             {yieldReturn.net.toFixed(2)}%
                           </p>

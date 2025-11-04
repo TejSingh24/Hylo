@@ -755,9 +755,9 @@ function App() {
                             </button>
                           </div>
                           
-                          {/* Asset Boost */}
+                          {/* Asset Points */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                            <strong>Asset Boost:</strong>
+                            <strong>Asset Points:</strong>
                             {isEditingAssetBoost ? (
                               <input
                                 type="number"
@@ -804,9 +804,9 @@ function App() {
                             </button>
                           </div>
                           
-                          {/* RateX Boost */}
+                          {/* RateX Points */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', gridColumn: '1 / -1' }}>
-                            <strong>RateX Boost:</strong>
+                            <strong>RateX Points:</strong>
                             {isEditingRatexBoost ? (
                               <input
                                 type="number"

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import './components/CardHighlights.css'
 import { Info, TrendingUp, Clock, Percent, Calculator, Zap, RefreshCw, Pencil } from 'lucide-react';
-import { refreshCache, checkHealth, type AssetData } from './services/ratexApi';
+import { refreshCache, checkHealth, getLastUpdated, checkAndRefreshIfStale, type AssetData } from './services/ratexApi';
 
 function App() {
   // Calculator mode: 'manual' or 'auto'
@@ -20,6 +20,7 @@ function App() {
   const [isFetchingAssets, setIsFetchingAssets] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [hasFetchedData, setHasFetchedData] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
   
   // Editable states for auto mode
   const [isEditingLeverage, setIsEditingLeverage] = useState(false)
@@ -38,6 +39,7 @@ function App() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
+  const hasCheckedFreshnessRef = useRef(false) // Prevent double-trigger in dev mode
   
   // Shared states
   const [yieldReturn, setYieldReturn] = useState<{ gross: number; net: number } | null>(null)
@@ -58,6 +60,23 @@ function App() {
     
     wakeUpBackend();
   }, []); // Empty dependency array = run once on mount
+  
+  // Auto-refresh: Check data age on page load and trigger refresh if stale (>10 mins)
+  useEffect(() => {
+    // Prevent double execution in React StrictMode (dev only)
+    if (hasCheckedFreshnessRef.current) return;
+    hasCheckedFreshnessRef.current = true;
+    
+    const checkDataFreshness = async () => {
+      try {
+        await checkAndRefreshIfStale();
+      } catch (error) {
+        console.log('⚠️ Auto-refresh check failed:', error);
+      }
+    };
+    
+    checkDataFreshness();
+  }, []); // Run once on page load
   
   // Scroll to result when it appears
   useEffect(() => {
@@ -111,6 +130,30 @@ function App() {
     }, 300)
   }
 
+  // Helper function to get relative time
+  const getRelativeTime = (timestamp: string): string => {
+    try {
+      const now = new Date();
+      const updated = new Date(timestamp);
+      const diffMs = now.getTime() - updated.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      
+      if (diffMins < 1) return 'just now';
+      if (diffMins === 1) return '1 min ago';
+      if (diffMins < 60) return `${diffMins} mins ago`;
+      
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours === 1) return '1 hour ago';
+      if (diffHours < 24) return `${diffHours} hours ago`;
+      
+      const diffDays = Math.floor(diffHours / 24);
+      if (diffDays === 1) return '1 day ago';
+      return `${diffDays} days ago`;
+    } catch {
+      return 'unknown';
+    }
+  };
+
   // Fetch ALL assets data from Rate-X (Auto mode)
   // Always fetches fresh data from Rate-X, bypassing cache
   // Includes automatic retry logic for timeout errors
@@ -129,6 +172,10 @@ function App() {
         const assets = await refreshCache();
         setAvailableAssets(assets);
         setHasFetchedData(true);
+        
+        // Fetch and store last updated timestamp
+        const timestamp = await getLastUpdated();
+        setLastUpdated(timestamp);
         
         // If user has already selected an asset, update it with fresh data
         if (selectedAsset) {
@@ -663,6 +710,11 @@ function App() {
                       <p className="input-hint" style={{opacity: 0.7, fontSize: '0.75rem', fontStyle: 'italic', marginTop: '0.5rem'}}>
                         💡 Fetch data first, then select asset. Click <Pencil className="w-3 h-3" style={{display: 'inline', marginBottom: '-2px'}} /> to edit values
                       </p>
+                      {lastUpdated && (
+                        <p className="input-hint" style={{opacity: 0.7, fontSize: '0.7rem', fontStyle: 'italic', marginTop: '0.25rem'}}>
+                          ⏰ Last updated: {getRelativeTime(lastUpdated)} • Click Fetch to refresh on screen
+                        </p>
+                      )}
                     </div>
 
                     {/* Display fetched data */}

@@ -35,12 +35,20 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
     
     console.log('Navigating to Rate-X leverage page...');
     await page.goto('https://app.rate-x.io/leverage', {
-      waitUntil: 'networkidle2',
-      timeout: 60000
+      waitUntil: 'domcontentloaded', // Faster than 'networkidle2'
+      timeout: 90000 // 90 seconds (1:30 min) to handle cold starts
     });
     
-    // Wait longer for dynamic content to load
-    await page.waitForTimeout(5000);
+    // Wait for cards to appear instead of fixed timeout
+    console.log('Waiting for asset cards to load...');
+    try {
+      await page.waitForFunction(
+        () => document.body.innerText.length > 1000,
+        { timeout: 10000 }
+      );
+    } catch (e) {
+      console.warn('Content may not be fully loaded, proceeding anyway...');
+    }
     
     // Scroll down multiple times to load ALL cards
     console.log('Scrolling to load all cards...');
@@ -48,7 +56,7 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
       await page.evaluate(() => {
         window.scrollBy(0, 1500);
       });
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(800); // Reduced from 1500ms to 800ms
     }
     
     console.log(`Looking for ${assetName} card...`);
@@ -240,11 +248,20 @@ export async function scrapeAllAssets() {
     
     console.log('Navigating to Rate-X leverage page...');
     await page.goto('https://app.rate-x.io/leverage', {
-      waitUntil: 'networkidle2',
-      timeout: 60000
+      waitUntil: 'domcontentloaded', // Faster than 'networkidle2'
+      timeout: 90000 // 90 seconds (1:30 min) to handle cold starts
     });
     
-    await page.waitForTimeout(5000);
+    // Wait for cards to appear instead of fixed timeout
+    console.log('Waiting for asset cards to load...');
+    try {
+      await page.waitForFunction(
+        () => document.body.innerText.length > 1000,
+        { timeout: 10000 }
+      );
+    } catch (e) {
+      console.warn('Content may not be fully loaded, proceeding anyway...');
+    }
     
     // Scroll to load all cards
     console.log('Scrolling to load all cards...');
@@ -252,7 +269,7 @@ export async function scrapeAllAssets() {
       await page.evaluate(() => {
         window.scrollBy(0, 1500);
       });
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(800); // Reduced from 1500ms to 800ms
     }
     
     console.log('⚡ Extracting ALL asset data in one operation...');

@@ -97,53 +97,91 @@ function App() {
 
   // Fetch ALL assets data from Rate-X (Auto mode)
   // Always fetches fresh data from Rate-X, bypassing cache
+  // Includes automatic retry logic for timeout errors
   const fetchAllAssetsHandler = async () => {
     setIsFetchingAssets(true);
     setFetchError(null);
     
-    try {
-      // Use refreshCache to force fresh scrape from Rate-X
-      const assets = await refreshCache();
-      setAvailableAssets(assets);
-      setHasFetchedData(true);
-      
-      // If user has already selected an asset, update it with fresh data
-      if (selectedAsset) {
-        const updatedAssetData = assets.find(a => a.asset === selectedAsset);
-        if (updatedAssetData) {
-          setAutoData(updatedAssetData);
-          // Update editable values with fresh fetched data
-          setEditableLeverage(String(updatedAssetData.leverage || 0));
-          setEditableApy(String(updatedAssetData.apy || 0));
-          setEditableMaturity(String(updatedAssetData.maturityDays || 0));
-          setEditableAssetBoost(String(updatedAssetData.assetBoost || 0));
-          setEditableRatexBoost(String(updatedAssetData.ratexBoost || 0));
-          
-          // Recalculate with fresh data
-          setIsCalculating(true);
-          setTimeout(() => {
-            const leverageNum = updatedAssetData.leverage || 0;
-            const apyNum = (updatedAssetData.apy || 0) / 100;
-            const maturityDaysNum = updatedAssetData.maturityDays || 0;
+    const maxAttempts = 2; // Try once, retry once if fails
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`Fetch attempt ${attempt}/${maxAttempts}...`);
+        
+        // Use refreshCache to force fresh scrape from Rate-X
+        const assets = await refreshCache();
+        setAvailableAssets(assets);
+        setHasFetchedData(true);
+        
+        // If user has already selected an asset, update it with fresh data
+        if (selectedAsset) {
+          const updatedAssetData = assets.find(a => a.asset === selectedAsset);
+          if (updatedAssetData) {
+            setAutoData(updatedAssetData);
+            // Update editable values with fresh fetched data
+            setEditableLeverage(String(updatedAssetData.leverage || 0));
+            setEditableApy(String(updatedAssetData.apy || 0));
+            setEditableMaturity(String(updatedAssetData.maturityDays || 0));
+            setEditableAssetBoost(String(updatedAssetData.assetBoost || 0));
+            setEditableRatexBoost(String(updatedAssetData.ratexBoost || 0));
             
-            if (leverageNum > 0 && maturityDaysNum > 0) {
-              const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
-              const netResult = grossResult * 0.995;
-              setYieldReturn({ gross: grossResult, net: netResult });
-            }
-            
-            setIsCalculating(false);
-          }, 300);
+            // Recalculate with fresh data
+            setIsCalculating(true);
+            setTimeout(() => {
+              const leverageNum = updatedAssetData.leverage || 0;
+              const apyNum = (updatedAssetData.apy || 0) / 100;
+              const maturityDaysNum = updatedAssetData.maturityDays || 0;
+              
+              if (leverageNum > 0 && maturityDaysNum > 0) {
+                const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
+                const netResult = grossResult * 0.995;
+                setYieldReturn({ gross: grossResult, net: netResult });
+              }
+              
+              setIsCalculating(false);
+            }, 300);
+          }
+        }
+        
+        // Success! Break out of retry loop
+        setIsFetchingAssets(false);
+        return;
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Failed to fetch assets data');
+        console.log(`Attempt ${attempt} failed:`, lastError.message);
+        
+        // If this is not the last attempt, wait before retrying
+        if (attempt < maxAttempts) {
+          console.log('Retrying in 2 seconds...');
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
         }
       }
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch assets data';
-      setFetchError(errorMessage);
-      alert(`Error: ${errorMessage}\n\nMake sure the backend server is running on http://localhost:3001`);
-    } finally {
-      setIsFetchingAssets(false);
     }
+    
+    // All attempts failed - show error to user
+    if (lastError) {
+      const errorMessage = lastError.message;
+      setFetchError(errorMessage);
+      
+      // Show user-friendly error message
+      if (errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch')) {
+        alert(
+          `⚠️ Unable to connect to backend server.\n\n` +
+          `Tried ${maxAttempts} times but request timed out.\n\n` +
+          `This may be because:\n` +
+          `• Backend is still starting up (wait 30s and try again)\n` +
+          `• Request is taking longer than expected\n` +
+          `• Backend server might be down\n\n` +
+          `Please wait a moment and click "Fetch" again.`
+        );
+      } else {
+        alert(`Error: ${errorMessage}\n\nPlease try again in a few moments.`);
+      }
+    }
+    
+    setIsFetchingAssets(false);
   };
 
   // Calculate yield for selected asset (Auto mode)

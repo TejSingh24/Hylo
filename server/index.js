@@ -16,8 +16,63 @@ process.on('unhandledRejection', (reason, promise) => {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// CORS Configuration - Allow domains from environment variable
+// Set ALLOWED_ORIGINS in environment variables (comma-separated list)
+// Example: "https://hylo.vercel.app,https://hylo-staging.vercel.app"
+const getAllowedOrigins = () => {
+  const envOrigins = process.env.ALLOWED_ORIGINS || '';
+  const origins = envOrigins.split(',').map(origin => origin.trim()).filter(Boolean);
+  
+  // Always allow localhost for development
+  const defaultOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:4173',
+  ];
+  
+  // If no environment variable set, allow all *.vercel.app (less secure, for testing)
+  if (origins.length === 0) {
+    console.log('⚠️  No ALLOWED_ORIGINS set. Allowing all *.vercel.app domains (not recommended for production)');
+    return [...defaultOrigins, '*.vercel.app'];
+  }
+  
+  console.log('✅ CORS allowed origins:', [...defaultOrigins, ...origins]);
+  return [...defaultOrigins, ...origins];
+};
+
+const allowedOrigins = getAllowedOrigins();
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in the allowed list
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      // Handle wildcard pattern (*.vercel.app)
+      if (allowedOrigin.includes('*')) {
+        const pattern = allowedOrigin.replace('*', '.*');
+        const regex = new RegExp(`^${pattern}$`);
+        return regex.test(origin);
+      }
+      // Exact match
+      return origin === allowedOrigin;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Cache for scraped data

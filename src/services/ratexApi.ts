@@ -1,5 +1,9 @@
 // API Base URL - configure based on environment
+// For local development: http://localhost:3001
+// For production: set VITE_API_URL environment variable in Vercel
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+console.log('API Base URL:', API_BASE_URL); // Debug log to verify URL
 
 export interface AssetData {
   asset: string;

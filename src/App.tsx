@@ -1156,7 +1156,14 @@ function App() {
 
                       {/* Calculate Button */}
                       <button
-                        onClick={calculateAutoYield}
+                        onClick={() => {
+                          // If autoData exists, use edited values; otherwise calculate fresh
+                          if (autoData) {
+                            recalculateYield();
+                          } else {
+                            calculateAutoYield();
+                          }
+                        }}
                         disabled={isCalculating || !hasFetchedData || !selectedAsset}
                         className={`calculate-button ${isCalculating ? 'calculating' : ''}`}
                         style={{

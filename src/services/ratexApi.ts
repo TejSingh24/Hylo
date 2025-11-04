@@ -1,9 +1,9 @@
-// API Base URL - Use relative paths when deployed together on Vercel
+// API Base URL - Points to Render.com backend
 // For local development with separate backend: http://localhost:3001
-// For production (unified deployment): empty string (relative paths)
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// For production: Render.com backend URL or set VITE_API_URL environment variable
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://rate-x-backend.onrender.com';
 
-console.log('API Base URL:', API_BASE_URL || '(relative paths)'); // Debug log to verify URL
+console.log('API Base URL:', API_BASE_URL); // Debug log to verify URL
 
 export interface AssetData {
   asset: string;

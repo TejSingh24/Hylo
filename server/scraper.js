@@ -1,8 +1,5 @@
 import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
-
-// Configure chromium for serverless environments
-chromium.setGraphicsMode = false;
+import chromium from 'chrome-aws-lambda';
 
 /**
  * Scrapes asset data from Rate-X leverage page
@@ -16,18 +13,8 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
     console.log(`Starting scraper for asset: ${assetName}`);
     
     browser = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        '--disable-gpu',
-        '--disable-dev-shm-usage',
-        '--disable-setuid-sandbox',
-        '--no-first-run',
-        '--no-sandbox',
-        '--no-zygote',
-        '--single-process',
-      ],
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      args: chromium.args,
+      executablePath: await chromium.executablePath,
       headless: chromium.headless,
     });
     
@@ -219,18 +206,8 @@ export async function scrapeAllAssets() {
     console.log('🚀 Starting optimized scraper - fetching ALL assets in one go!');
     
     browser = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        '--disable-gpu',
-        '--disable-dev-shm-usage',
-        '--disable-setuid-sandbox',
-        '--no-first-run',
-        '--no-sandbox',
-        '--no-zygote',
-        '--single-process',
-      ],
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      args: chromium.args,
+      executablePath: await chromium.executablePath,
       headless: chromium.headless,
     });
     

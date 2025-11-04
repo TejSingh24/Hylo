@@ -1,6 +1,8 @@
-import puppeteer from 'puppeteer-core';
+import puppeteerCore from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import { chmod } from 'fs/promises';
+
+const puppeteer = puppeteerCore;
 
 /**
  * Scrapes asset data from Rate-X leverage page

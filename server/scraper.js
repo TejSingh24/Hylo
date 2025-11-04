@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
+import { chmod } from 'fs/promises';
 
 /**
  * Scrapes asset data from Rate-X leverage page
@@ -12,11 +13,22 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
   try {
     console.log(`Starting scraper for asset: ${assetName}`);
     
+    // Get executable path and ensure it has proper permissions
+    const executablePath = await chromium.executablePath();
+    
+    // Fix ETXTBSY error by setting executable permissions
+    try {
+      await chmod(executablePath, 0o755);
+    } catch (chmodError) {
+      console.warn('Could not chmod chromium:', chmodError.message);
+    }
+    
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [...chromium.args, '--single-process', '--no-zygote'],
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: executablePath,
       headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
     
     const page = await browser.newPage();
@@ -206,11 +218,22 @@ export async function scrapeAllAssets() {
   try {
     console.log('🚀 Starting optimized scraper - fetching ALL assets in one go!');
     
+    // Get executable path and ensure it has proper permissions
+    const executablePath = await chromium.executablePath();
+    
+    // Fix ETXTBSY error by setting executable permissions
+    try {
+      await chmod(executablePath, 0o755);
+    } catch (chmodError) {
+      console.warn('Could not chmod chromium:', chmodError.message);
+    }
+    
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [...chromium.args, '--single-process', '--no-zygote'],
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: executablePath,
       headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
     
     const page = await browser.newPage();

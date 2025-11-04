@@ -1,5 +1,5 @@
 import puppeteer from 'puppeteer-core';
-import chromium from 'chrome-aws-lambda';
+import chromium from '@sparticuz/chromium';
 
 /**
  * Scrapes asset data from Rate-X leverage page
@@ -13,8 +13,9 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
     console.log(`Starting scraper for asset: ${assetName}`);
     
     browser = await puppeteer.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath,
+      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
       headless: chromium.headless,
     });
     
@@ -206,8 +207,9 @@ export async function scrapeAllAssets() {
     console.log('🚀 Starting optimized scraper - fetching ALL assets in one go!');
     
     browser = await puppeteer.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath,
+      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
       headless: chromium.headless,
     });
     

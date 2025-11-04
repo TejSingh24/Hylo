@@ -1,0 +1,42 @@
+name: Scrape RateX Data
+
+on:
+  # Run every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'  # At minute 0 past every 6th hour
+  
+  # Allow manual trigger
+  workflow_dispatch:
+  
+  # Run on push to test
+  push:
+    branches: [ web_scraping_start, main ]
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package.json
+      
+      - name: Install dependencies
+        working-directory: ./server
+        run: npm install
+      
+      - name: Run scraper
+        working-directory: ./server
+        run: node scrape-and-update.js
+        env:
+          GIST_ID: d3a1db6fc79e168cf5dff8d3a2c11706
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+      
+      - name: Show completion message
+        run: echo "✅ RateX data scraped and Gist updated successfully!"

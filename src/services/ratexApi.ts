@@ -1,9 +1,7 @@
-// API Base URL - Points to Render.com backend
-// For local development with separate backend: http://localhost:3001
-// For production: Render.com backend URL or set VITE_API_URL environment variable
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://rate-x-backend.onrender.com';
+// GitHub Gist URL - Public, no authentication needed
+const GIST_RAW_URL = 'https://gist.githubusercontent.com/TejSingh24/d3a1db6fc79e168cf5dff8d3a2c11706/raw/ratex-assets.json';
 
-console.log('API Base URL:', API_BASE_URL); // Debug log to verify URL
+console.log('Fetching RateX data from GitHub Gist'); // Debug log
 
 export interface AssetData {
   asset: string;
@@ -14,51 +12,47 @@ export interface AssetData {
   ratexBoost: number | null;
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  cached?: boolean;
-  timestamp?: number;
-  data?: T;
-  error?: string;
-  message?: string;
+export interface GistResponse {
+  lastUpdated: string;
+  assetsCount: number;
+  assets: AssetData[];
 }
 
 /**
- * Fetch all available assets from Rate-X
+ * Fetch all available assets from Rate-X (via GitHub Gist)
  */
 export async function fetchAllAssets(): Promise<AssetData[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/assets`);
-    const result: ApiResponse<AssetData[]> = await response.json();
+    // Add timestamp to bypass cache
+    const response = await fetch(`${GIST_RAW_URL}?t=${Date.now()}`);
     
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to fetch assets');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch from Gist: ${response.status}`);
     }
     
-    return result.data || [];
+    const result: GistResponse = await response.json();
+    
+    return result.assets || [];
   } catch (error) {
-    console.error('Error fetching all assets:', error);
+    console.error('Error fetching all assets from Gist:', error);
     throw error;
   }
 }
 
 /**
- * Fetch specific asset data from Rate-X
+ * Fetch specific asset data from Rate-X (via GitHub Gist)
  */
 export async function fetchAssetData(assetName: string): Promise<AssetData> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/asset/${assetName}`);
-    const result: ApiResponse<AssetData> = await response.json();
+    // Fetch all assets and find the specific one
+    const assets = await fetchAllAssets();
+    const asset = assets.find(a => a.asset.toLowerCase() === assetName.toLowerCase());
     
-    if (!result.success) {
-      throw new Error(result.error || `Failed to fetch data for ${assetName}`);
+    if (!asset) {
+      throw new Error(`Asset ${assetName} not found`);
     }
     
-    if (!result.data) {
-      throw new Error(`No data returned for ${assetName}`);
-    }
-    
-    return result.data;
+    return asset;
   } catch (error) {
     console.error(`Error fetching asset ${assetName}:`, error);
     throw error;
@@ -66,36 +60,37 @@ export async function fetchAssetData(assetName: string): Promise<AssetData> {
 }
 
 /**
- * Force refresh the cache
+ * Get last update timestamp
  */
-export async function refreshCache(): Promise<AssetData[]> {
+export async function getLastUpdated(): Promise<string> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/refresh`, {
-      method: 'POST'
-    });
-    const result: ApiResponse<AssetData[]> = await response.json();
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to refresh cache');
-    }
-    
-    return result.data || [];
+    const response = await fetch(`${GIST_RAW_URL}?t=${Date.now()}`);
+    const result: GistResponse = await response.json();
+    return result.lastUpdated || 'Unknown';
   } catch (error) {
-    console.error('Error refreshing cache:', error);
-    throw error;
+    console.error('Error getting last updated time:', error);
+    return 'Unknown';
   }
 }
 
 /**
- * Check API health status
+ * Force refresh - not needed with Gist approach
+ * Kept for compatibility, but returns current data
+ */
+export async function refreshCache(): Promise<AssetData[]> {
+  console.log('Note: Data is automatically updated by GitHub Actions every 6 hours');
+  return fetchAllAssets();
+}
+
+/**
+ * Check if Gist data is available
  */
 export async function checkHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`);
-    const result = await response.json();
-    return result.success;
+    const response = await fetch(`${GIST_RAW_URL}?t=${Date.now()}`);
+    return response.ok;
   } catch (error) {
-    console.error('API health check failed:', error);
+    console.error('Gist health check failed:', error);
     return false;
   }
 }

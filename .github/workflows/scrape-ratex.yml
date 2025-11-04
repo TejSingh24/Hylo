@@ -7,12 +7,6 @@ on:
   
   # Allow manual trigger from GitHub UI or API
   workflow_dispatch:
-  
-  # Auto-restart: when workflow completes, it can trigger itself
-  workflow_run:
-    workflows: ["Scrape RateX Data"]
-    types:
-      - completed
 
 jobs:
   scrape:

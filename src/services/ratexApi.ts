@@ -1,9 +1,9 @@
-// API Base URL - configure based on environment
-// For local development: http://localhost:3001
-// For production: set VITE_API_URL environment variable in Vercel
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// API Base URL - Use relative paths when deployed together on Vercel
+// For local development with separate backend: http://localhost:3001
+// For production (unified deployment): empty string (relative paths)
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
-console.log('API Base URL:', API_BASE_URL); // Debug log to verify URL
+console.log('API Base URL:', API_BASE_URL || '(relative paths)'); // Debug log to verify URL
 
 export interface AssetData {
   asset: string;

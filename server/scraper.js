@@ -1,4 +1,5 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 /**
  * Scrapes asset data from Rate-X leverage page
@@ -12,15 +13,13 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
     console.log(`Starting scraper for asset: ${assetName}`);
     
     browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
     
     const page = await browser.newPage();
-    
-    // Set viewport and user agent
-    await page.setViewport({ width: 1920, height: 1080 });
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
     console.log('Navigating to Rate-X leverage page...');
     await page.goto('https://app.rate-x.io/leverage', {
@@ -208,13 +207,13 @@ export async function scrapeAllAssets() {
     console.log('🚀 Starting optimized scraper - fetching ALL assets in one go!');
     
     browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
     
     const page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
     console.log('Navigating to Rate-X leverage page...');
     await page.goto('https://app.rate-x.io/leverage', {

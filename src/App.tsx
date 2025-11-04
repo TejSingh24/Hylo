@@ -107,7 +107,35 @@ function App() {
       setAvailableAssets(assets);
       setHasFetchedData(true);
       
-      // Don't auto-select or auto-calculate - user will select and calculate manually
+      // If user has already selected an asset, update it with fresh data
+      if (selectedAsset) {
+        const updatedAssetData = assets.find(a => a.asset === selectedAsset);
+        if (updatedAssetData) {
+          setAutoData(updatedAssetData);
+          // Update editable values with fresh fetched data
+          setEditableLeverage(String(updatedAssetData.leverage || 0));
+          setEditableApy(String(updatedAssetData.apy || 0));
+          setEditableMaturity(String(updatedAssetData.maturityDays || 0));
+          setEditableAssetBoost(String(updatedAssetData.assetBoost || 0));
+          setEditableRatexBoost(String(updatedAssetData.ratexBoost || 0));
+          
+          // Recalculate with fresh data
+          setIsCalculating(true);
+          setTimeout(() => {
+            const leverageNum = updatedAssetData.leverage || 0;
+            const apyNum = (updatedAssetData.apy || 0) / 100;
+            const maturityDaysNum = updatedAssetData.maturityDays || 0;
+            
+            if (leverageNum > 0 && maturityDaysNum > 0) {
+              const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
+              const netResult = grossResult * 0.995;
+              setYieldReturn({ gross: grossResult, net: netResult });
+            }
+            
+            setIsCalculating(false);
+          }, 300);
+        }
+      }
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch assets data';

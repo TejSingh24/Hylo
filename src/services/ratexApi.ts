@@ -78,7 +78,7 @@ export async function getLastUpdated(): Promise<string> {
  * Kept for compatibility, but returns current data
  */
 export async function refreshCache(): Promise<AssetData[]> {
-  console.log('Note: Data is automatically updated by GitHub Actions every 6 hours');
+  console.log('Note: Data is automatically updated by GitHub Actions every 5 minutes');
   return fetchAllAssets();
 }
 

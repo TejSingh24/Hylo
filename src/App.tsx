@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import './components/CardHighlights.css'
 import { Info, TrendingUp, Clock, Percent, Calculator, Zap, RefreshCw, Pencil } from 'lucide-react';
-import { refreshCache, type AssetData } from './services/ratexApi';
+import { refreshCache, checkHealth, type AssetData } from './services/ratexApi';
 
 function App() {
   // Calculator mode: 'manual' or 'auto'
@@ -42,6 +42,22 @@ function App() {
   // Shared states
   const [yieldReturn, setYieldReturn] = useState<{ gross: number; net: number } | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
+  
+  // Wake up backend on page load (only once)
+  useEffect(() => {
+    const wakeUpBackend = async () => {
+      try {
+        console.log('🌅 Waking up backend server...');
+        await checkHealth();
+        console.log('✅ Backend is awake and ready!');
+      } catch (error) {
+        console.log('⚠️ Backend wake-up ping failed (this is normal if backend is sleeping)');
+        // Silent fail - user doesn't need to see this error
+      }
+    };
+    
+    wakeUpBackend();
+  }, []); // Empty dependency array = run once on mount
   
   // Scroll to result when it appears
   useEffect(() => {

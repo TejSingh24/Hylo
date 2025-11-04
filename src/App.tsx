@@ -230,10 +230,10 @@ function App() {
     setIsCalculating(true);
 
     setTimeout(() => {
-      // Use editable values if they exist and are being edited, otherwise use original data
-      const leverageNum = editableLeverage ? parseFloat(editableLeverage) : (assetData.leverage || 0);
-      const apyNum = (editableApy ? parseFloat(editableApy) : (assetData.apy || 0)) / 100;
-      const maturityDaysNum = editableMaturity ? parseFloat(editableMaturity) : (assetData.maturityDays || 0);
+      // Use the NEW asset's data directly (not old editable values)
+      const leverageNum = assetData.leverage || 0;
+      const apyNum = (assetData.apy || 0) / 100;
+      const maturityDaysNum = assetData.maturityDays || 0;
       
       if (leverageNum > 0 && maturityDaysNum > 0) {
         const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;

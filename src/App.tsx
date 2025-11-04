@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import './components/CardHighlights.css'
-import { Info, TrendingUp, Clock, Percent, Calculator, Zap, RefreshCw } from 'lucide-react';
+import { Info, TrendingUp, Clock, Percent, Calculator, Zap, RefreshCw, Pencil } from 'lucide-react';
 import { refreshCache, type AssetData } from './services/ratexApi';
 
 function App() {
@@ -20,6 +20,18 @@ function App() {
   const [isFetchingAssets, setIsFetchingAssets] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [hasFetchedData, setHasFetchedData] = useState(false)
+  
+  // Editable states for auto mode
+  const [isEditingLeverage, setIsEditingLeverage] = useState(false)
+  const [isEditingApy, setIsEditingApy] = useState(false)
+  const [isEditingMaturity, setIsEditingMaturity] = useState(false)
+  const [isEditingAssetBoost, setIsEditingAssetBoost] = useState(false)
+  const [isEditingRatexBoost, setIsEditingRatexBoost] = useState(false)
+  const [editableLeverage, setEditableLeverage] = useState<string>('')
+  const [editableApy, setEditableApy] = useState<string>('')
+  const [editableMaturity, setEditableMaturity] = useState<string>('')
+  const [editableAssetBoost, setEditableAssetBoost] = useState<string>('')
+  const [editableRatexBoost, setEditableRatexBoost] = useState<string>('')
   
   // Searchable dropdown states
   const [searchTerm, setSearchTerm] = useState('')
@@ -127,12 +139,19 @@ function App() {
     }
 
     setAutoData(assetData);
+    // Initialize editable values with fetched data
+    setEditableLeverage(String(assetData.leverage || 0));
+    setEditableApy(String(assetData.apy || 0));
+    setEditableMaturity(String(assetData.maturityDays || 0));
+    setEditableAssetBoost(String(assetData.assetBoost || 0));
+    setEditableRatexBoost(String(assetData.ratexBoost || 0));
     setIsCalculating(true);
 
     setTimeout(() => {
-      const leverageNum = assetData.leverage || 0;
-      const apyNum = (assetData.apy || 0) / 100;
-      const maturityDaysNum = assetData.maturityDays || 0;
+      // Use editable values if they exist and are being edited, otherwise use original data
+      const leverageNum = editableLeverage ? parseFloat(editableLeverage) : (assetData.leverage || 0);
+      const apyNum = (editableApy ? parseFloat(editableApy) : (assetData.apy || 0)) / 100;
+      const maturityDaysNum = editableMaturity ? parseFloat(editableMaturity) : (assetData.maturityDays || 0);
       
       if (leverageNum > 0 && maturityDaysNum > 0) {
         const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
@@ -140,6 +159,26 @@ function App() {
         setYieldReturn({ gross: grossResult, net: netResult });
       } else {
         alert('Invalid asset data. Please try fetching again.');
+      }
+      
+      setIsCalculating(false);
+    }, 300);
+  };
+  
+  // Recalculate when editable values change
+  const recalculateYield = () => {
+    if (!autoData) return;
+    
+    setIsCalculating(true);
+    setTimeout(() => {
+      const leverageNum = parseFloat(editableLeverage) || 0;
+      const apyNum = (parseFloat(editableApy) || 0) / 100;
+      const maturityDaysNum = parseFloat(editableMaturity) || 0;
+      
+      if (leverageNum > 0 && maturityDaysNum > 0) {
+        const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
+        const netResult = grossResult * 0.995;
+        setYieldReturn({ gross: grossResult, net: netResult });
       }
       
       setIsCalculating(false);
@@ -540,7 +579,7 @@ function App() {
                         )}
                       </div>
                       <p className="input-hint" style={{opacity: 0.7, fontSize: '0.75rem', fontStyle: 'italic', marginTop: '0.5rem'}}>
-                        💡 Fetch data first, then select asset from dropdown
+                        💡 Fetch data first, then select asset. Click <Pencil className="w-3 h-3" style={{display: 'inline', marginBottom: '-2px'}} /> to edit values
                       </p>
                     </div>
 
@@ -557,11 +596,262 @@ function App() {
                           Selected Asset: {autoData.asset}
                         </h3>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem', color: 'white' }}>
-                          <div><strong>Leverage:</strong> {autoData.leverage}x</div>
-                          <div><strong>APY:</strong> {autoData.apy}%</div>
-                          <div><strong>Maturity:</strong> {autoData.maturityDays} days</div>
-                          <div><strong>Asset Boost:</strong> {autoData.assetBoost}x</div>
-                          <div style={{ gridColumn: '1 / -1' }}><strong>RateX Boost:</strong> {autoData.ratexBoost}x</div>
+                          {/* Leverage */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <strong>Leverage:</strong>
+                            {isEditingLeverage ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editableLeverage}
+                                onChange={(e) => setEditableLeverage(e.target.value)}
+                                onBlur={() => {
+                                  setIsEditingLeverage(false);
+                                  recalculateYield();
+                                }}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setIsEditingLeverage(false);
+                                    recalculateYield();
+                                  }
+                                }}
+                                style={{
+                                  width: '60px',
+                                  padding: '0.15rem 0.3rem',
+                                  borderRadius: '0.25rem',
+                                  border: '1px solid #10b981',
+                                  background: 'rgba(255, 255, 255, 0.1)',
+                                  color: 'white',
+                                  fontSize: '0.875rem',
+                                  marginLeft: '0.25rem'
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <span style={{ marginLeft: '0.25rem' }}>{editableLeverage || autoData.leverage}x</span>
+                            )}
+                            <button
+                              onClick={() => setIsEditingLeverage(!isEditingLeverage)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '0.1rem',
+                                color: isEditingLeverage ? '#10b981' : '#a855f7',
+                                transition: 'color 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginTop: '-2px'
+                              }}
+                              title="Edit value"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </div>
+                          
+                          {/* APY */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <strong>APY:</strong>
+                            {isEditingApy ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editableApy}
+                                onChange={(e) => setEditableApy(e.target.value)}
+                                onBlur={() => {
+                                  setIsEditingApy(false);
+                                  recalculateYield();
+                                }}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setIsEditingApy(false);
+                                    recalculateYield();
+                                  }
+                                }}
+                                style={{
+                                  width: '60px',
+                                  padding: '0.15rem 0.3rem',
+                                  borderRadius: '0.25rem',
+                                  border: '1px solid #10b981',
+                                  background: 'rgba(255, 255, 255, 0.1)',
+                                  color: 'white',
+                                  fontSize: '0.875rem',
+                                  marginLeft: '0.25rem'
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <span style={{ marginLeft: '0.25rem' }}>{editableApy || autoData.apy}%</span>
+                            )}
+                            <button
+                              onClick={() => setIsEditingApy(!isEditingApy)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '0.1rem',
+                                color: isEditingApy ? '#10b981' : '#a855f7',
+                                transition: 'color 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginTop: '-2px'
+                              }}
+                              title="Edit value"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </div>
+                          
+                          {/* Maturity */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <strong>Maturity:</strong>
+                            {isEditingMaturity ? (
+                              <input
+                                type="number"
+                                step="1"
+                                value={editableMaturity}
+                                onChange={(e) => setEditableMaturity(e.target.value)}
+                                onBlur={() => {
+                                  setIsEditingMaturity(false);
+                                  recalculateYield();
+                                }}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setIsEditingMaturity(false);
+                                    recalculateYield();
+                                  }
+                                }}
+                                style={{
+                                  width: '50px',
+                                  padding: '0.15rem 0.3rem',
+                                  borderRadius: '0.25rem',
+                                  border: '1px solid #10b981',
+                                  background: 'rgba(255, 255, 255, 0.1)',
+                                  color: 'white',
+                                  fontSize: '0.875rem',
+                                  marginLeft: '0.25rem'
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <span style={{ marginLeft: '0.25rem' }}>{editableMaturity || autoData.maturityDays} days</span>
+                            )}
+                            <button
+                              onClick={() => setIsEditingMaturity(!isEditingMaturity)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '0.1rem',
+                                color: isEditingMaturity ? '#10b981' : '#a855f7',
+                                transition: 'color 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginTop: '-2px'
+                              }}
+                              title="Edit value"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </div>
+                          
+                          {/* Asset Boost */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <strong>Asset Boost:</strong>
+                            {isEditingAssetBoost ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editableAssetBoost}
+                                onChange={(e) => setEditableAssetBoost(e.target.value)}
+                                onBlur={() => setIsEditingAssetBoost(false)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setIsEditingAssetBoost(false);
+                                  }
+                                }}
+                                style={{
+                                  width: '60px',
+                                  padding: '0.15rem 0.3rem',
+                                  borderRadius: '0.25rem',
+                                  border: '1px solid #10b981',
+                                  background: 'rgba(255, 255, 255, 0.1)',
+                                  color: 'white',
+                                  fontSize: '0.875rem',
+                                  marginLeft: '0.25rem'
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <span style={{ marginLeft: '0.25rem' }}>{editableAssetBoost || autoData.assetBoost}x</span>
+                            )}
+                            <button
+                              onClick={() => setIsEditingAssetBoost(!isEditingAssetBoost)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '0.1rem',
+                                color: isEditingAssetBoost ? '#10b981' : '#a855f7',
+                                transition: 'color 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginTop: '-2px'
+                              }}
+                              title="Edit value"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </div>
+                          
+                          {/* RateX Boost */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', gridColumn: '1 / -1' }}>
+                            <strong>RateX Boost:</strong>
+                            {isEditingRatexBoost ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editableRatexBoost}
+                                onChange={(e) => setEditableRatexBoost(e.target.value)}
+                                onBlur={() => setIsEditingRatexBoost(false)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setIsEditingRatexBoost(false);
+                                  }
+                                }}
+                                style={{
+                                  width: '60px',
+                                  padding: '0.15rem 0.3rem',
+                                  borderRadius: '0.25rem',
+                                  border: '1px solid #10b981',
+                                  background: 'rgba(255, 255, 255, 0.1)',
+                                  color: 'white',
+                                  fontSize: '0.875rem',
+                                  marginLeft: '0.25rem'
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <span style={{ marginLeft: '0.25rem' }}>{editableRatexBoost || autoData.ratexBoost}x</span>
+                            )}
+                            <button
+                              onClick={() => setIsEditingRatexBoost(!isEditingRatexBoost)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '0.1rem',
+                                color: isEditingRatexBoost ? '#10b981' : '#a855f7',
+                                transition: 'color 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginTop: '-2px'
+                              }}
+                              title="Edit value"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}

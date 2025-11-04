@@ -1,17 +1,23 @@
-name: Scrape RateX Data (Continuous Loop)
+name: Scrape RateX Data
 
 on:
-  # Allow manual trigger
+  # Run every 5 minutes automatically
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  
+  # Allow manual trigger from GitHub UI or API
   workflow_dispatch:
   
-  # Run on push to test
-  push:
-    branches: [ web_scraping_start, main ]
+  # Auto-restart: when workflow completes, it can trigger itself
+  workflow_run:
+    workflows: ["Scrape RateX Data"]
+    types:
+      - completed
 
 jobs:
-  scrape-loop:
+  scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours max (GitHub Actions limit)
+    timeout-minutes: 10  # Each scrape should finish in 10 minutes max
     
     steps:
       - name: Checkout code
@@ -24,18 +30,16 @@ jobs:
           cache: 'npm'
           cache-dependency-path: server/package.json
       
-      - name: Install dependencies ONCE
+      - name: Install dependencies
         working-directory: ./server
         run: npm install
       
-      - name: Run continuous scraper loop
+      - name: Run scraper (single execution)
         working-directory: ./server
-        run: node scrape-and-update.js
+        run: node scrape-once.js
         env:
           GIST_ID: d3a1db6fc79e168cf5dff8d3a2c11706
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
-          PORT: 3000
       
-      # Note: This job will run for 6 hours, then automatically restart
-      # GitHub Actions has a 6-hour timeout, after which the workflow will
-      # be cancelled and can be manually restarted or triggered by a new commit
+      - name: Show completion
+        run: echo "✅ Scraped and updated Gist at $(date)"

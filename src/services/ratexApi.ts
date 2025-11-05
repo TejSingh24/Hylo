@@ -78,7 +78,7 @@ export async function getLastUpdated(): Promise<string> {
  * Kept for compatibility, but returns current data
  */
 export async function refreshCache(): Promise<AssetData[]> {
-  console.log('Note: Data is automatically updated by GitHub Actions every 6 hours');
+  console.log('Note: Data is automatically updated by GitHub Actions every 5 minutes');
   return fetchAllAssets();
 }
 
@@ -92,5 +92,76 @@ export async function checkHealth(): Promise<boolean> {
   } catch (error) {
     console.error('Gist health check failed:', error);
     return false;
+  }
+}
+
+/**
+ * Trigger GitHub Actions workflow to scrape fresh data
+ */
+export async function triggerWorkflowRefresh(): Promise<boolean> {
+  try {
+    const token = import.meta.env.VITE_GITHUB_WORKFLOW_TOKEN;
+    
+    if (!token) {
+      console.warn('VITE_GITHUB_WORKFLOW_TOKEN not configured, skipping workflow trigger');
+      return false;
+    }
+
+    const response = await fetch(
+      'https://api.github.com/repos/TejSingh24/Hylo/actions/workflows/scrape-ratex.yml/dispatches',
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${token}`,
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ref: 'main', // Run workflow on main branch
+        }),
+      }
+    );
+
+    if (response.status === 204) {
+      console.log('✅ Successfully triggered workflow refresh');
+      return true;
+    } else {
+      console.error('Failed to trigger workflow:', response.status, response.statusText);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error triggering workflow refresh:', error);
+    return false;
+  }
+}
+
+/**
+ * Check data age and trigger refresh if needed (>10 minutes old)
+ */
+export async function checkAndRefreshIfStale(): Promise<void> {
+  try {
+    const lastUpdated = await getLastUpdated();
+    
+    if (lastUpdated === 'Unknown') {
+      console.log('⚠️ Could not determine data age, skipping auto-refresh');
+      return;
+    }
+
+    const now = new Date();
+    const updated = new Date(lastUpdated);
+    const ageMs = now.getTime() - updated.getTime();
+    const ageMinutes = Math.floor(ageMs / 60000);
+
+    console.log(`📊 Data age: ${ageMinutes} minutes`);
+
+    if (ageMinutes > 10) {
+      console.log(`🔄 Data is stale (${ageMinutes} mins old), triggering refresh...`);
+      await triggerWorkflowRefresh();
+    } else {
+      console.log(`✅ Data is fresh (${ageMinutes} mins old), no refresh needed`);
+    }
+  } catch (error) {
+    console.error('Error checking data staleness:', error);
   }
 }

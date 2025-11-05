@@ -62,16 +62,31 @@ export function calculateMaturesIn(maturityUTC) {
 }
 
 /**
- * Format YT price with adaptive decimal precision
+ * Format YT price with adaptive decimal precision (at least 3 non-zero digits)
  * @param {number} value - Raw YT price value
  * @returns {number|null} - Formatted value with appropriate decimals
  */
 function formatYtPrice(value) {
   if (value === null || value === undefined) return null;
   
-  if (value >= 0.01) return parseFloat(value.toFixed(5));
-  if (value >= 0.001) return parseFloat(value.toFixed(6));
-  if (value >= 0.0001) return parseFloat(value.toFixed(7));
+  const absValue = Math.abs(value);
+  
+  // >= 1.0 → 3 decimals (e.g., 1.234)
+  if (absValue >= 1.0) return parseFloat(value.toFixed(3));
+  
+  // 0.1 to 0.999 → 4 decimals (e.g., 0.1234)
+  if (absValue >= 0.1) return parseFloat(value.toFixed(4));
+  
+  // 0.01 to 0.099 → 5 decimals (e.g., 0.01234)
+  if (absValue >= 0.01) return parseFloat(value.toFixed(5));
+  
+  // 0.001 to 0.0099 → 6 decimals (e.g., 0.001234)
+  if (absValue >= 0.001) return parseFloat(value.toFixed(6));
+  
+  // 0.0001 to 0.00099 → 7 decimals (e.g., 0.0001234)
+  if (absValue >= 0.0001) return parseFloat(value.toFixed(7));
+  
+  // Even smaller → 8 decimals
   return parseFloat(value.toFixed(8));
 }
 

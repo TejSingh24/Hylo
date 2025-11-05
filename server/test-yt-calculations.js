@@ -4,9 +4,24 @@
 function formatYtPrice(value) {
   if (value === null || value === undefined) return null;
   
-  if (value >= 0.01) return parseFloat(value.toFixed(5));
-  if (value >= 0.001) return parseFloat(value.toFixed(6));
-  if (value >= 0.0001) return parseFloat(value.toFixed(7));
+  const absValue = Math.abs(value);
+  
+  // >= 1.0 → 3 decimals (e.g., 1.234)
+  if (absValue >= 1.0) return parseFloat(value.toFixed(3));
+  
+  // 0.1 to 0.999 → 4 decimals (e.g., 0.1234)
+  if (absValue >= 0.1) return parseFloat(value.toFixed(4));
+  
+  // 0.01 to 0.099 → 5 decimals (e.g., 0.01234)
+  if (absValue >= 0.01) return parseFloat(value.toFixed(5));
+  
+  // 0.001 to 0.0099 → 6 decimals (e.g., 0.001234)
+  if (absValue >= 0.001) return parseFloat(value.toFixed(6));
+  
+  // 0.0001 to 0.00099 → 7 decimals (e.g., 0.0001234)
+  if (absValue >= 0.0001) return parseFloat(value.toFixed(7));
+  
+  // Even smaller → 8 decimals
   return parseFloat(value.toFixed(8));
 }
 
@@ -187,9 +202,12 @@ console.log('0.0052% →', formatPercentage(0.0052), '(should be 0.0052)');
 console.log('');
 
 // Test 5: YT price formatting
-console.log('Test 5: YT Price formatting');
-console.log('0.15000 →', formatYtPrice(0.15000), '(should be 0.15)');
-console.log('0.007270 →', formatYtPrice(0.007270), '(should be 0.00727)');
+console.log('Test 5: YT Price formatting (3 non-zero digits minimum)');
+console.log('0.150000 →', formatYtPrice(0.150000), '(should be 0.15)');
+console.log('0.123456 →', formatYtPrice(0.123456), '(should be 0.1235)');
+console.log('0.027270 →', formatYtPrice(0.027270), '(should be 0.02727)');
+console.log('0.007270 →', formatYtPrice(0.007270), '(should be 0.007270)');
+console.log('0.001234 →', formatYtPrice(0.001234), '(should be 0.001234)');
 console.log('0.0001234 →', formatYtPrice(0.0001234), '(should be 0.0001234)');
 console.log('');
 

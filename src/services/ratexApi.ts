@@ -18,6 +18,15 @@ export interface AssetData {
   rangeUpper: number | null;   // Upper bound of range (e.g., 30 from "10% - 30%")
   maturity: string | null;     // Maturity date (e.g., "2025-11-29 00:00:00 UTC")
   maturesIn: string | null;    // Time until maturity (e.g., "23d 10h")
+  
+  // YT Price calculations (calculated in backend, stored in Gist)
+  ytPriceCurrent: number | null;  // YT price using impliedYield
+  ytPriceLower: number | null;    // YT price using rangeLower
+  ytPriceUpper: number | null;    // YT price using rangeUpper
+  upsidePotential: number | null; // Percentage upside (ytUpper vs ytCurrent)
+  downsideRisk: number | null;    // Percentage downside (ytCurrent vs ytLower)
+  endDayMinimumPct: number | null; // Max loss % if yield drops + 1 day left
+  dailyDecayRate: number | null;   // Daily value loss % due to time passing
 }
 
 export interface GistResponse {

@@ -62,6 +62,164 @@ export function calculateMaturesIn(maturityUTC) {
 }
 
 /**
+ * Format YT price with adaptive decimal precision
+ * @param {number} value - Raw YT price value
+ * @returns {number|null} - Formatted value with appropriate decimals
+ */
+function formatYtPrice(value) {
+  if (value === null || value === undefined) return null;
+  
+  if (value >= 0.01) return parseFloat(value.toFixed(5));
+  if (value >= 0.001) return parseFloat(value.toFixed(6));
+  if (value >= 0.0001) return parseFloat(value.toFixed(7));
+  return parseFloat(value.toFixed(8));
+}
+
+/**
+ * Format percentage with adaptive precision (at least 2 non-zero digits)
+ * @param {number} value - Percentage value
+ * @returns {number|null} - Formatted percentage with appropriate decimals
+ */
+function formatPercentage(value) {
+  if (value === null || value === undefined) return null;
+  
+  const absValue = Math.abs(value);
+  
+  if (absValue >= 1.0) return parseFloat(value.toFixed(2));
+  if (absValue >= 0.1) return parseFloat(value.toFixed(2));
+  if (absValue >= 0.01) return parseFloat(value.toFixed(3));
+  if (absValue >= 0.001) return parseFloat(value.toFixed(4));
+  if (absValue >= 0.0001) return parseFloat(value.toFixed(5));
+  return parseFloat(value.toFixed(6));
+}
+
+/**
+ * Calculate YT price using formula: 1 - (1 + r)^(-T)
+ * @param {string} maturity - Maturity date in UTC format
+ * @param {number} yieldRate - Yield rate as percentage (e.g., 62.115)
+ * @param {string} lastUpdated - Timestamp when data was fetched
+ * @returns {number|null} - YT price with adaptive precision, or null if invalid
+ */
+function calculateYtPrice(maturity, yieldRate, lastUpdated) {
+  if (!maturity || yieldRate === null || yieldRate === undefined || !lastUpdated) {
+    return null;
+  }
+  
+  try {
+    const maturityDate = new Date(maturity);
+    const updatedDate = new Date(lastUpdated);
+    
+    if (isNaN(maturityDate.getTime()) || isNaN(updatedDate.getTime())) {
+      return null;
+    }
+    
+    const diffMs = maturityDate.getTime() - updatedDate.getTime();
+    
+    if (diffMs <= 0) return 0; // Maturity passed
+    
+    const T = diffMs / (365 * 24 * 60 * 60 * 1000); // Years
+    const r = yieldRate / 100; // Convert percentage to decimal
+    const ytPrice = 1 - Math.pow(1 + r, -T);
+    
+    return formatYtPrice(ytPrice);
+  } catch (error) {
+    console.warn(`Error calculating YT price:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Calculate all YT-related metrics for an asset
+ * @param {string} maturity - Maturity date
+ * @param {number} impliedYield - Implied yield percentage
+ * @param {number} rangeLower - Lower yield range percentage
+ * @param {number} rangeUpper - Upper yield range percentage
+ * @param {string} lastUpdated - Timestamp when data was fetched
+ * @returns {Object} All YT metrics (prices, upside, downside, decay, end-day)
+ */
+function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated) {
+  const result = {
+    ytPriceCurrent: null,
+    ytPriceLower: null,
+    ytPriceUpper: null,
+    upsidePotential: null,
+    downsideRisk: null,
+    endDayMinimumPct: null,
+    dailyDecayRate: null
+  };
+  
+  if (!maturity || !lastUpdated) return result;
+  
+  try {
+    const maturityDate = new Date(maturity);
+    const updatedDate = new Date(lastUpdated);
+    const diffMs = maturityDate.getTime() - updatedDate.getTime();
+    
+    // Maturity passed - all zeros
+    if (diffMs <= 0) {
+      return {
+        ytPriceCurrent: 0,
+        ytPriceLower: 0,
+        ytPriceUpper: 0,
+        upsidePotential: 0,
+        downsideRisk: 0,
+        endDayMinimumPct: 0,
+        dailyDecayRate: 0
+      };
+    }
+    
+    const currentT = diffMs / (365 * 24 * 60 * 60 * 1000); // Years
+    
+    // Calculate YT prices
+    result.ytPriceCurrent = calculateYtPrice(maturity, impliedYield, lastUpdated);
+    result.ytPriceLower = calculateYtPrice(maturity, rangeLower, lastUpdated);
+    result.ytPriceUpper = calculateYtPrice(maturity, rangeUpper, lastUpdated);
+    
+    // Calculate upside/downside (only if all prices available)
+    if (result.ytPriceCurrent && result.ytPriceUpper) {
+      const upside = ((result.ytPriceUpper - result.ytPriceCurrent) / result.ytPriceCurrent) * 100;
+      result.upsidePotential = formatPercentage(upside);
+    }
+    
+    if (result.ytPriceCurrent && result.ytPriceLower) {
+      const downside = ((result.ytPriceCurrent - result.ytPriceLower) / result.ytPriceCurrent) * 100;
+      result.downsideRisk = formatPercentage(downside);
+    }
+    
+    // Only 1 day left edge case
+    if (currentT <= 1/365) {
+      result.dailyDecayRate = 100;
+      result.endDayMinimumPct = 0;
+      return result;
+    }
+    
+    // Daily decay rate (time decay with constant yield)
+    if (impliedYield !== null && impliedYield !== undefined) {
+      const tomorrowT = currentT - (1/365);
+      const r = impliedYield / 100;
+      const ytToday = 1 - Math.pow(1 + r, -currentT);
+      const ytTomorrow = 1 - Math.pow(1 + r, -tomorrowT);
+      const decay = ((ytToday - ytTomorrow) / ytToday) * 100;
+      result.dailyDecayRate = formatPercentage(decay);
+    }
+    
+    // End-day minimum (worst case: 1 day left + lower yield)
+    if (rangeLower !== null && rangeLower !== undefined && result.ytPriceCurrent) {
+      const T_oneDay = 1 / 365;
+      const r_lower = rangeLower / 100;
+      const ytEndWorstCase = 1 - Math.pow(1 + r_lower, -T_oneDay);
+      const endDayLoss = ((result.ytPriceCurrent - ytEndWorstCase) / result.ytPriceCurrent) * 100;
+      result.endDayMinimumPct = formatPercentage(endDayLoss);
+    }
+    
+    return result;
+  } catch (error) {
+    console.warn(`Error calculating YT metrics:`, error.message);
+    return result;
+  }
+}
+
+/**
  * Scrapes asset data from Rate-X leverage page
  * @param {string} assetName - The name of the asset to scrape (e.g., 'HyloSOL', 'HYusd', 'sHYUSD', 'xSOL')
  * @returns {Promise<Object>} Asset data including full name, base name, leverage, APY, maturity days, asset boost, RateX boost, and implied yield
@@ -601,6 +759,7 @@ export async function scrapeDetailPageWithRetry(page, fullAssetName, maxRetries 
  */
 export async function scrapeDetailPages(page, assets, existingGistData) {
   console.log('🔍 PHASE 2: Fetching detail pages...');
+  const lastUpdated = new Date().toISOString(); // Single timestamp for all calculations
   
   for (const asset of assets) {
     console.log(`  → Fetching details for ${asset.asset}...`);
@@ -619,7 +778,18 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
         asset.impliedYield = detailData.impliedYield;
       }
       
-      console.log(`  ✅ ${asset.asset}: Range ${detailData.rangeLower}-${detailData.rangeUpper}%, Maturity ${detailData.maturity}`);
+      // Calculate all YT metrics
+      const ytMetrics = calculateYtMetrics(
+        asset.maturity,
+        asset.impliedYield,
+        asset.rangeLower,
+        asset.rangeUpper,
+        lastUpdated
+      );
+      
+      Object.assign(asset, ytMetrics);
+      
+      console.log(`  ✅ ${asset.asset}: Range ${detailData.rangeLower}-${detailData.rangeUpper}%, YT Current ${ytMetrics.ytPriceCurrent}`);
     } else {
       // Failed after retries - use old Gist data or calculate
       console.warn(`  ⚠️ Failed to fetch ${asset.asset}, using fallback data`);
@@ -630,6 +800,17 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
         asset.rangeUpper = oldAsset.rangeUpper;
         asset.maturity = oldAsset.maturity;
         
+        // Recalculate YT metrics with old data
+        const ytMetrics = calculateYtMetrics(
+          asset.maturity,
+          asset.impliedYield,
+          asset.rangeLower,
+          asset.rangeUpper,
+          lastUpdated
+        );
+        
+        Object.assign(asset, ytMetrics);
+        
         // Recalculate maturesIn from old maturity if available
         if (oldAsset.maturity) {
           asset.maturesIn = calculateMaturesIn(oldAsset.maturity);
@@ -638,7 +819,14 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
           asset.maturesIn = null;
         }
       } else {
-        // New asset with no old data - stays null
+        // New asset with no old data - set all YT metrics to null
+        asset.ytPriceCurrent = null;
+        asset.ytPriceLower = null;
+        asset.ytPriceUpper = null;
+        asset.upsidePotential = null;
+        asset.downsideRisk = null;
+        asset.endDayMinimumPct = null;
+        asset.dailyDecayRate = null;
         console.log(`  ℹ️ New asset ${asset.asset} - detail fields will be null until next run`);
       }
     }

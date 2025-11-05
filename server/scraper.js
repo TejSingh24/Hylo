@@ -4,6 +4,63 @@ import { chmod } from 'fs/promises';
 
 const puppeteer = puppeteerCore;
 
+// Gist configuration
+const GIST_ID = process.env.GIST_ID || 'd3a1db6fc79e168cf5dff8d3a2c11706';
+const GIST_RAW_URL = `https://gist.githubusercontent.com/TejSingh24/${GIST_ID}/raw/ratex-assets.json`;
+
+/**
+ * Fetch existing Gist data for fallback/merge
+ * @returns {Promise<Object>} Map of asset name to asset data
+ */
+export async function fetchExistingGistData() {
+  try {
+    const response = await fetch(GIST_RAW_URL);
+    if (!response.ok) {
+      console.warn('⚠️ Could not fetch existing Gist data (may not exist yet)');
+      return {};
+    }
+    
+    const data = await response.json();
+    
+    // Convert array to map for fast lookup
+    const dataMap = {};
+    if (data.assets && Array.isArray(data.assets)) {
+      data.assets.forEach(asset => {
+        dataMap[asset.asset] = asset;
+      });
+    }
+    
+    console.log(`✅ Loaded ${Object.keys(dataMap).length} assets from existing Gist`);
+    return dataMap;
+  } catch (error) {
+    console.warn('⚠️ Error fetching existing Gist data, starting fresh:', error.message);
+    return {};
+  }
+}
+
+/**
+ * Calculate time until maturity from maturity date
+ * @param {string} maturityUTC - Maturity date string (e.g., "2025-11-29 00:00:00 UTC")
+ * @returns {string} Time until maturity (e.g., "23d 10h")
+ */
+export function calculateMaturesIn(maturityUTC) {
+  try {
+    const maturityDate = new Date(maturityUTC);
+    const now = new Date();
+    const diffMs = maturityDate - now;
+    
+    if (diffMs <= 0) return "Expired";
+    
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    return `${days}d ${hours}h`;
+  } catch (error) {
+    console.warn('Error calculating maturesIn:', error.message);
+    return null;
+  }
+}
+
 /**
  * Scrapes asset data from Rate-X leverage page
  * @param {string} assetName - The name of the asset to scrape (e.g., 'HyloSOL', 'HYusd', 'sHYUSD', 'xSOL')
@@ -148,7 +205,13 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
         maturityDays: null,
         assetBoost: null,
         ratexBoost: null,
-        impliedYield: null
+        impliedYield: null,
+        
+        // Phase 2 fields - not available from cards page
+        rangeLower: null,
+        rangeUpper: null,
+        maturity: null,
+        maturesIn: null
       };
       
       // Extract data using regex patterns on the full card text
@@ -357,7 +420,13 @@ export async function scrapeAllAssets() {
               maturityDays: null,
               assetBoost: null,
               ratexBoost: null,
-              impliedYield: null
+              impliedYield: null,
+              
+              // Phase 2 fields - will be populated later
+              rangeLower: null,
+              rangeUpper: null,
+              maturity: null,
+              maturesIn: null
             };
             
             // Extract Leverage (Yield Exposure)
@@ -424,3 +493,158 @@ export async function scrapeAllAssets() {
     throw error;
   }
 }
+
+/**
+ * Scrape detail page for a single asset
+ * @param {Object} page - Puppeteer page instance
+ * @param {string} fullAssetName - Full asset name (e.g., "hyloSOL-2511")
+ * @returns {Promise<Object>} Detail data including range, maturity, maturesIn, impliedYield
+ */
+export async function scrapeDetailPage(page, fullAssetName) {
+  const url = `https://app.rate-x.io/liquidity/slp?symbol=${fullAssetName}&tab=Detail`;
+  
+  try {
+    await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
+    });
+    
+    // Wait for content to load
+    await page.waitForTimeout(2000);
+    
+    // Extract detail page data
+    const detailData = await page.evaluate(() => {
+      const bodyText = document.body.innerText;
+      
+      const result = {
+        rangeLower: null,
+        rangeUpper: null,
+        maturity: null,
+        maturesIn: null,
+        impliedYield: null
+      };
+      
+      // Extract Range: "10% - 30%" or "10%-30%"
+      const rangeMatch = bodyText.match(/Range[^\d]*([\d]+)%\s*-\s*([\d]+)%/i);
+      if (rangeMatch) {
+        result.rangeLower = parseInt(rangeMatch[1]);
+        result.rangeUpper = parseInt(rangeMatch[2]);
+      }
+      
+      // Extract Maturity: "2025-11-29 00:00:00 UTC"
+      const maturityMatch = bodyText.match(/Maturity[^\d]*([\d]{4}-[\d]{2}-[\d]{2}\s+[\d]{2}:[\d]{2}:[\d]{2}\s+UTC)/i);
+      if (maturityMatch) {
+        result.maturity = maturityMatch[1];
+      }
+      
+      // Extract Matures In: "23d 10h"
+      const maturesInMatch = bodyText.match(/Matures\s+in[^\d]*([\d]+d\s+[\d]+h)/i);
+      if (maturesInMatch) {
+        result.maturesIn = maturesInMatch[1];
+      }
+      
+      // Extract Implied Yield (updated value from detail page)
+      const impliedYieldMatch = bodyText.match(/Implied\s+Yield[:\s]*([\d.]+)\s*%/i);
+      if (impliedYieldMatch) {
+        result.impliedYield = parseFloat(impliedYieldMatch[1]);
+      }
+      
+      return result;
+    });
+    
+    return detailData;
+    
+  } catch (error) {
+    console.warn(`  ⚠️ Error scraping detail page for ${fullAssetName}:`, error.message);
+    throw error;
+  }
+}
+
+/**
+ * Scrape detail page with retry logic
+ * @param {Object} page - Puppeteer page instance
+ * @param {string} fullAssetName - Full asset name
+ * @param {number} maxRetries - Maximum number of retry attempts (default: 2)
+ * @returns {Promise<Object|null>} Detail data or null if all retries fail
+ */
+export async function scrapeDetailPageWithRetry(page, fullAssetName, maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`    Attempt ${attempt}/${maxRetries}...`);
+      const detailData = await scrapeDetailPage(page, fullAssetName);
+      
+      // Validate that we got at least some data
+      if (detailData.rangeLower !== null || detailData.maturity !== null) {
+        return detailData;
+      } else {
+        throw new Error('No valid data extracted from detail page');
+      }
+    } catch (error) {
+      console.warn(`    Attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        console.log(`    Retrying in 2 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  }
+  
+  return null; // All retries failed
+}
+
+/**
+ * Scrape detail pages for all assets (Phase 2)
+ * @param {Object} page - Puppeteer page instance
+ * @param {Array} assets - Array of asset objects from Phase 1
+ * @param {Object} existingGistData - Map of existing Gist data for fallback
+ * @returns {Promise<Array>} Assets with detail page data merged
+ */
+export async function scrapeDetailPages(page, assets, existingGistData) {
+  console.log('🔍 PHASE 2: Fetching detail pages...');
+  
+  for (const asset of assets) {
+    console.log(`  → Fetching details for ${asset.asset}...`);
+    
+    const detailData = await scrapeDetailPageWithRetry(page, asset.asset, 2);
+    
+    if (detailData) {
+      // Success - update with fresh data
+      asset.rangeLower = detailData.rangeLower;
+      asset.rangeUpper = detailData.rangeUpper;
+      asset.maturity = detailData.maturity;
+      asset.maturesIn = detailData.maturesIn;
+      
+      // Override implied yield with latest value from detail page
+      if (detailData.impliedYield !== null) {
+        asset.impliedYield = detailData.impliedYield;
+      }
+      
+      console.log(`  ✅ ${asset.asset}: Range ${detailData.rangeLower}-${detailData.rangeUpper}%, Maturity ${detailData.maturity}`);
+    } else {
+      // Failed after retries - use old Gist data or calculate
+      console.warn(`  ⚠️ Failed to fetch ${asset.asset}, using fallback data`);
+      
+      const oldAsset = existingGistData[asset.asset];
+      if (oldAsset) {
+        asset.rangeLower = oldAsset.rangeLower;
+        asset.rangeUpper = oldAsset.rangeUpper;
+        asset.maturity = oldAsset.maturity;
+        
+        // Recalculate maturesIn from old maturity if available
+        if (oldAsset.maturity) {
+          asset.maturesIn = calculateMaturesIn(oldAsset.maturity);
+          console.log(`  📊 Using cached data with recalculated maturesIn: ${asset.maturesIn}`);
+        } else {
+          asset.maturesIn = null;
+        }
+      } else {
+        // New asset with no old data - stays null
+        console.log(`  ℹ️ New asset ${asset.asset} - detail fields will be null until next run`);
+      }
+    }
+  }
+  
+  console.log('✅ Phase 2 complete');
+  return assets;
+}
+

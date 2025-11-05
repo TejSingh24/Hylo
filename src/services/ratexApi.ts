@@ -12,6 +12,12 @@ export interface AssetData {
   assetBoost: number | null;
   ratexBoost: number | null;
   impliedYield: number | null; // Implied Yield percentage (e.g., 62.115)
+  
+  // Detail page fields (scraped from liquidity detail page)
+  rangeLower: number | null;   // Lower bound of range (e.g., 10 from "10% - 30%")
+  rangeUpper: number | null;   // Upper bound of range (e.g., 30 from "10% - 30%")
+  maturity: string | null;     // Maturity date (e.g., "2025-11-29 00:00:00 UTC")
+  maturesIn: string | null;    // Time until maturity (e.g., "23d 10h")
 }
 
 export interface GistResponse {

@@ -4,12 +4,14 @@ const GIST_RAW_URL = 'https://gist.githubusercontent.com/TejSingh24/d3a1db6fc79e
 console.log('Fetching RateX data from GitHub Gist'); // Debug log
 
 export interface AssetData {
-  asset: string;
+  asset: string;              // Full name with maturity: "xSOL-2511", "hyloSOL+-2511"
+  baseAsset: string;          // Base name without suffix: "xSOL", "hyloSOL+"
   leverage: number | null;
   apy: number | null;
   maturityDays: number | null;
   assetBoost: number | null;
   ratexBoost: number | null;
+  impliedYield: number | null; // Implied Yield percentage (e.g., 62.115)
 }
 
 export interface GistResponse {

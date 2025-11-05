@@ -7,7 +7,7 @@ const puppeteer = puppeteerCore;
 /**
  * Scrapes asset data from Rate-X leverage page
  * @param {string} assetName - The name of the asset to scrape (e.g., 'HyloSOL', 'HYusd', 'sHYUSD', 'xSOL')
- * @returns {Promise<Object>} Asset data including leverage, APY, maturity days, asset boost, and RateX boost
+ * @returns {Promise<Object>} Asset data including full name, base name, leverage, APY, maturity days, asset boost, RateX boost, and implied yield
  */
 export async function scrapeAssetData(assetName = 'HyloSOL') {
   let browser;
@@ -135,14 +135,20 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
       const cardText = assetCard.textContent;
       console.log('Card text preview:', cardText.substring(0, 500));
       
+      // Extract full asset name from the card (e.g., "xSOL-2511")
+      const fullNameMatch = cardText.match(new RegExp(`${targetAsset.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{4}`, 'i'));
+      const fullAssetName = fullNameMatch ? fullNameMatch[0] : targetAsset;
+      
       // Initialize result object
       const result = {
-        asset: targetAsset,
+        asset: fullAssetName,      // Full name: "xSOL-2511"
+        baseAsset: targetAsset,    // Base name: "xSOL"
         leverage: null,
         apy: null,
         maturityDays: null,
         assetBoost: null,
-        ratexBoost: null
+        ratexBoost: null,
+        impliedYield: null
       };
       
       // Extract data using regex patterns on the full card text
@@ -159,6 +165,13 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
       if (apyMatch) {
         result.apy = parseFloat(apyMatch[1]);
         console.log('Found APY:', result.apy);
+      }
+      
+      // Extract Implied Yield - beside Yield Exposure, labeled as "Implied Yield"
+      const impliedYieldMatch = cardText.match(/Implied\s+Yield[:\s]*([\d.]+)\s*%/i);
+      if (impliedYieldMatch) {
+        result.impliedYield = parseFloat(impliedYieldMatch[1]);
+        console.log('Found Implied Yield:', result.impliedYield);
       }
       
       // Extract Maturity Days - look for patterns like "14 Days" or just number before "Days"
@@ -295,8 +308,8 @@ export async function scrapeAllAssets() {
           const fullAssetName = assetNameMatch[0]; // e.g., "xSOL-2511"
           const assetName = assetNameMatch[1]; // e.g., "xSOL"
           
-          // Skip if already processed this asset
-          if (processedAssets.has(assetName)) continue;
+          // Skip if already processed this full asset name (to handle duplicates)
+          if (processedAssets.has(fullAssetName)) continue;
           
           // Now find the parent card containing all data for this asset
           // We want the SMALLEST (most specific) card, not the first one
@@ -337,12 +350,14 @@ export async function scrapeAllAssets() {
             
             // Extract all data
             const result = {
-              asset: assetName,
+              asset: fullAssetName,      // Full name: "xSOL-2511"
+              baseAsset: assetName,      // Base name: "xSOL"
               leverage: null,
               apy: null,
               maturityDays: null,
               assetBoost: null,
-              ratexBoost: null
+              ratexBoost: null,
+              impliedYield: null
             };
             
             // Extract Leverage (Yield Exposure)
@@ -355,6 +370,12 @@ export async function scrapeAllAssets() {
             const apyMatch = cardText.match(/Underlying\s+APY\s*([\d.]+)\s*%/i);
             if (apyMatch) {
               result.apy = parseFloat(apyMatch[1]);
+            }
+            
+            // Extract Implied Yield - beside Yield Exposure
+            const impliedYieldMatch = cardText.match(/Implied\s+Yield[:\s]*([\d.]+)\s*%/i);
+            if (impliedYieldMatch) {
+              result.impliedYield = parseFloat(impliedYieldMatch[1]);
             }
             
             // Extract Maturity Days
@@ -380,7 +401,7 @@ export async function scrapeAllAssets() {
             // Only add if we found essential data
             if (result.leverage !== null && result.maturityDays !== null) {
               assets.push(result);
-              processedAssets.add(assetName);
+              processedAssets.add(fullAssetName); // Track by full name to allow multiple versions
             }
           } // Close if (bestCard)
         } // Close if (assetNameMatch)

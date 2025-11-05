@@ -27,6 +27,11 @@ export interface AssetData {
   downsideRisk: number | null;    // Percentage downside (ytCurrent vs ytLower)
   endDayMinimumPct: number | null; // Max loss % if yield drops + 1 day left
   dailyDecayRate: number | null;   // Daily value loss % due to time passing
+  
+  // Yield and Points calculations (calculated in backend, stored in Gist)
+  expectedRecoveryYield: number | null;  // Net yield % (gross × 0.995)
+  expectedPointsPerDay: number | null;   // Points/day (with $1 deposit)
+  totalExpectedPoints: number | null;    // Total points (with $1 deposit)
 }
 
 export interface GistResponse {

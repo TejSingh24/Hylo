@@ -1,6 +1,30 @@
 // Test YT calculations
 // Mock the utility functions from scraper.js
 
+function calculateDaysToMaturity(maturity, lastUpdated) {
+  if (!maturity || !lastUpdated) return null;
+  
+  try {
+    const maturityDate = new Date(maturity);
+    const updatedDate = new Date(lastUpdated);
+    
+    if (isNaN(maturityDate.getTime()) || isNaN(updatedDate.getTime())) {
+      return null;
+    }
+    
+    const diffMs = maturityDate.getTime() - updatedDate.getTime();
+    
+    if (diffMs <= 0) return 0;
+    
+    const days = diffMs / (24 * 60 * 60 * 1000);
+    
+    return days;
+  } catch (error) {
+    console.warn('Error calculating days to maturity:', error.message);
+    return null;
+  }
+}
+
 function formatYtPrice(value) {
   if (value === null || value === undefined) return null;
   
@@ -66,7 +90,7 @@ function calculateYtPrice(maturity, yieldRate, lastUpdated) {
   }
 }
 
-function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated) {
+function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated, leverage, apy, maturityDays, assetBoost) {
   const result = {
     ytPriceCurrent: null,
     ytPriceLower: null,
@@ -74,7 +98,10 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
     upsidePotential: null,
     downsideRisk: null,
     endDayMinimumPct: null,
-    dailyDecayRate: null
+    dailyDecayRate: null,
+    expectedRecoveryYield: null,
+    expectedPointsPerDay: null,
+    totalExpectedPoints: null
   };
   
   if (!maturity || !lastUpdated) return result;
@@ -92,7 +119,10 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
         upsidePotential: 0,
         downsideRisk: 0,
         endDayMinimumPct: 0,
-        dailyDecayRate: 0
+        dailyDecayRate: 0,
+        expectedRecoveryYield: 0,
+        expectedPointsPerDay: 0,
+        totalExpectedPoints: 0
       };
     }
     
@@ -135,6 +165,30 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
       result.endDayMinimumPct = formatPercentage(endDayLoss);
     }
     
+    // Calculate Expected Recovery Yield (Net Yield %)
+    const preciseDays = calculateDaysToMaturity(maturity, lastUpdated);
+    const daysToUse = preciseDays !== null ? preciseDays : maturityDays;
+    
+    if (leverage !== null && leverage !== undefined && apy !== null && apy !== undefined && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
+      const apyDecimal = apy / 100;
+      const grossYield = leverage * (Math.pow(1 + apyDecimal, 1/365) - 1) * 365 * (daysToUse/365) * 100;
+      const netYield = grossYield * 0.995;
+      result.expectedRecoveryYield = formatPercentage(netYield);
+    }
+    
+    // Calculate Total Expected Points (with $1 deposit)
+    if (leverage !== null && leverage !== undefined && assetBoost !== null && assetBoost !== undefined) {
+      const depositAmount = 1;
+      const totalPoints = leverage * assetBoost * depositAmount;
+      result.totalExpectedPoints = Math.round(totalPoints);
+    }
+    
+    // Calculate Expected Points Per Day
+    if (result.totalExpectedPoints !== null && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
+      const pointsPerDay = result.totalExpectedPoints / daysToUse;
+      result.expectedPointsPerDay = Math.round(pointsPerDay);
+    }
+    
     return result;
   } catch (error) {
     console.warn(`Error calculating YT metrics:`, error.message);
@@ -152,9 +206,16 @@ const test1 = calculateYtMetrics(
   62.115,                      // impliedYield
   10,                          // rangeLower
   90,                          // rangeUpper
-  '2025-11-05 00:00:00 UTC'   // lastUpdated (today)
+  '2025-11-05 00:00:00 UTC',  // lastUpdated (today)
+  133,                         // leverage
+  7.86,                        // apy
+  23,                          // maturityDays
+  2                            // assetBoost
 );
 console.log('Results:', JSON.stringify(test1, null, 2));
+console.log('expectedRecoveryYield:', test1.expectedRecoveryYield, '%');
+console.log('totalExpectedPoints:', test1.totalExpectedPoints);
+console.log('expectedPointsPerDay:', test1.expectedPointsPerDay);
 console.log('');
 
 // Test 2: Edge case (1 day to maturity)
@@ -164,7 +225,11 @@ const test2 = calculateYtMetrics(
   62.115,
   10,
   90,
-  '2025-11-05 00:00:00 UTC'
+  '2025-11-05 00:00:00 UTC',
+  133,
+  7.86,
+  1,
+  2
 );
 console.log('Results:', JSON.stringify(test2, null, 2));
 console.log('dailyDecayRate should be 100:', test2.dailyDecayRate === 100);
@@ -178,7 +243,11 @@ const test3 = calculateYtMetrics(
   62.115,
   10,
   90,
-  '2025-11-05 00:00:00 UTC'
+  '2025-11-05 00:00:00 UTC',
+  133,
+  7.86,
+  0,
+  2
 );
 console.log('Results:', JSON.stringify(test3, null, 2));
 console.log('All values should be 0:', JSON.stringify(test3) === JSON.stringify({
@@ -188,7 +257,10 @@ console.log('All values should be 0:', JSON.stringify(test3) === JSON.stringify(
   upsidePotential: 0,
   downsideRisk: 0,
   endDayMinimumPct: 0,
-  dailyDecayRate: 0
+  dailyDecayRate: 0,
+  expectedRecoveryYield: 0,
+  expectedPointsPerDay: 0,
+  totalExpectedPoints: 0
 }));
 console.log('');
 
@@ -209,6 +281,14 @@ console.log('0.027270 →', formatYtPrice(0.027270), '(should be 0.02727)');
 console.log('0.007270 →', formatYtPrice(0.007270), '(should be 0.007270)');
 console.log('0.001234 →', formatYtPrice(0.001234), '(should be 0.001234)');
 console.log('0.0001234 →', formatYtPrice(0.0001234), '(should be 0.0001234)');
+console.log('');
+
+// Test 6: Precise days calculation (with hours)
+console.log('Test 6: Precise days calculation');
+const daysTest1 = calculateDaysToMaturity('2025-11-28 10:00:00 UTC', '2025-11-05 00:00:00 UTC');
+console.log('23d 10h →', daysTest1, 'days (should be ~23.417)');
+const daysTest2 = calculateDaysToMaturity('2025-11-28 00:00:00 UTC', '2025-11-05 00:00:00 UTC');
+console.log('23d 0h →', daysTest2, 'days (should be exactly 23)');
 console.log('');
 
 console.log('✅ All tests complete!');

@@ -62,6 +62,37 @@ export function calculateMaturesIn(maturityUTC) {
 }
 
 /**
+ * Calculate precise days until maturity (including decimal hours)
+ * @param {string} maturity - Maturity date in UTC format
+ * @param {string} lastUpdated - Current timestamp
+ * @returns {number|null} - Days until maturity as decimal (e.g., 23.417)
+ */
+function calculateDaysToMaturity(maturity, lastUpdated) {
+  if (!maturity || !lastUpdated) return null;
+  
+  try {
+    const maturityDate = new Date(maturity);
+    const updatedDate = new Date(lastUpdated);
+    
+    if (isNaN(maturityDate.getTime()) || isNaN(updatedDate.getTime())) {
+      return null;
+    }
+    
+    const diffMs = maturityDate.getTime() - updatedDate.getTime();
+    
+    if (diffMs <= 0) return 0;
+    
+    // Convert milliseconds to days (including decimal hours)
+    const days = diffMs / (24 * 60 * 60 * 1000);
+    
+    return days;
+  } catch (error) {
+    console.warn('Error calculating days to maturity:', error.message);
+    return null;
+  }
+}
+
+/**
  * Format YT price with adaptive decimal precision (at least 3 non-zero digits)
  * @param {number} value - Raw YT price value
  * @returns {number|null} - Formatted value with appropriate decimals
@@ -150,9 +181,13 @@ function calculateYtPrice(maturity, yieldRate, lastUpdated) {
  * @param {number} rangeLower - Lower yield range percentage
  * @param {number} rangeUpper - Upper yield range percentage
  * @param {string} lastUpdated - Timestamp when data was fetched
- * @returns {Object} All YT metrics (prices, upside, downside, decay, end-day)
+ * @param {number} leverage - Leverage multiplier
+ * @param {number} apy - Annual Percentage Yield
+ * @param {number} maturityDays - Days until maturity
+ * @param {number} assetBoost - Asset boost multiplier
+ * @returns {Object} All YT metrics (prices, upside, downside, decay, end-day, recovery, points)
  */
-function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated) {
+function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated, leverage, apy, maturityDays, assetBoost) {
   const result = {
     ytPriceCurrent: null,
     ytPriceLower: null,
@@ -160,7 +195,10 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
     upsidePotential: null,
     downsideRisk: null,
     endDayMinimumPct: null,
-    dailyDecayRate: null
+    dailyDecayRate: null,
+    expectedRecoveryYield: null,
+    expectedPointsPerDay: null,
+    totalExpectedPoints: null
   };
   
   if (!maturity || !lastUpdated) return result;
@@ -179,7 +217,10 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
         upsidePotential: 0,
         downsideRisk: 0,
         endDayMinimumPct: 0,
-        dailyDecayRate: 0
+        dailyDecayRate: 0,
+        expectedRecoveryYield: 0,
+        expectedPointsPerDay: 0,
+        totalExpectedPoints: 0
       };
     }
     
@@ -225,6 +266,33 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
       const ytEndWorstCase = 1 - Math.pow(1 + r_lower, -T_oneDay);
       const endDayLoss = ((result.ytPriceCurrent - ytEndWorstCase) / result.ytPriceCurrent) * 100;
       result.endDayMinimumPct = formatPercentage(endDayLoss);
+    }
+    
+    // Calculate Expected Recovery Yield (Net Yield %)
+    // Use precise days from maturity date, fallback to maturityDays
+    const preciseDays = calculateDaysToMaturity(maturity, lastUpdated);
+    const daysToUse = preciseDays !== null ? preciseDays : maturityDays;
+    
+    if (leverage !== null && leverage !== undefined && apy !== null && apy !== undefined && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
+      const apyDecimal = apy / 100; // Convert percentage to decimal
+      const grossYield = leverage * (Math.pow(1 + apyDecimal, 1/365) - 1) * 365 * (daysToUse/365) * 100;
+      const netYield = grossYield * 0.995; // Platform takes 0.5% of yield
+      result.expectedRecoveryYield = formatPercentage(netYield);
+    }
+    
+    // Calculate Total Expected Points (with $1 deposit)
+    // Formula: leverage × assetBoost × depositAmount (default $1)
+    if (leverage !== null && leverage !== undefined && assetBoost !== null && assetBoost !== undefined) {
+      const depositAmount = 1; // Default deposit amount
+      const totalPoints = leverage * assetBoost * depositAmount;
+      result.totalExpectedPoints = Math.round(totalPoints); // Round to whole number
+    }
+    
+    // Calculate Expected Points Per Day
+    // Use precise days from maturity date, fallback to maturityDays
+    if (result.totalExpectedPoints !== null && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
+      const pointsPerDay = result.totalExpectedPoints / daysToUse;
+      result.expectedPointsPerDay = Math.round(pointsPerDay); // Round to whole number
     }
     
     return result;
@@ -799,7 +867,11 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
         asset.impliedYield,
         asset.rangeLower,
         asset.rangeUpper,
-        lastUpdated
+        lastUpdated,
+        asset.leverage,
+        asset.apy,
+        asset.maturityDays,
+        asset.assetBoost
       );
       
       Object.assign(asset, ytMetrics);
@@ -821,7 +893,11 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
           asset.impliedYield,
           asset.rangeLower,
           asset.rangeUpper,
-          lastUpdated
+          lastUpdated,
+          asset.leverage,
+          asset.apy,
+          asset.maturityDays,
+          asset.assetBoost
         );
         
         Object.assign(asset, ytMetrics);
@@ -842,6 +918,9 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
         asset.downsideRisk = null;
         asset.endDayMinimumPct = null;
         asset.dailyDecayRate = null;
+        asset.expectedRecoveryYield = null;
+        asset.expectedPointsPerDay = null;
+        asset.totalExpectedPoints = null;
         console.log(`  ℹ️ New asset ${asset.asset} - detail fields will be null until next run`);
       }
     }

@@ -501,7 +501,7 @@ export async function scrapeAllAssets() {
  * @returns {Promise<Object>} Detail data including range, maturity, maturesIn, impliedYield
  */
 export async function scrapeDetailPage(page, fullAssetName) {
-  const url = `https://app.rate-x.io/liquidity/slp?symbol=${fullAssetName}&tab=Detail`;
+  const url = `https://app.rate-x.io/liquidity/slp?symbol=${encodeURIComponent(fullAssetName)}&tab=Detail`;
   
   try {
     await page.goto(url, {

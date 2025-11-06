@@ -663,6 +663,11 @@ export async function scrapeAllAssets() {
               ratexBoost: null,
               impliedYield: null,
               
+              // Visual assets from card (extracted in Phase 1)
+              projectBackgroundImage: null,
+              projectName: null,
+              assetSymbolImage: null,
+              
               // Phase 2 fields - will be populated later
               rangeLower: null,
               rangeUpper: null,
@@ -706,6 +711,51 @@ export async function scrapeAllAssets() {
             } else if (boostMatches && boostMatches.length === 1) {
               result.assetBoost = parseFloat(boostMatches[0].replace(/x/i, ''));
               result.ratexBoost = 1;
+            }
+            
+            // Extract Project Background Image from card div (Phase 1)
+            // Card should have inline style with background-image
+            const cardDiv = bestCard.querySelector('div[style*="background-image"]') || bestCard;
+            if (cardDiv) {
+              const styleAttr = cardDiv.getAttribute('style');
+              if (styleAttr) {
+                const bgImageMatch = styleAttr.match(/background-image:\s*url\s*\(\s*["']?((?:https?:)?\/\/static\.rate-x\.io\/[^"')]+)["']?\s*\)/i);
+                if (bgImageMatch) {
+                  let imageUrl = bgImageMatch[1];
+                  
+                  // Fix protocol
+                  if (imageUrl.startsWith('//')) {
+                    imageUrl = 'https:' + imageUrl;
+                  }
+                  
+                  result.projectBackgroundImage = imageUrl;
+                  
+                  // Extract project name from filename
+                  const urlParts = imageUrl.split('/');
+                  const filename = urlParts[urlParts.length - 1];
+                  const projectName = filename.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, '');
+                  result.projectName = projectName;
+                }
+              }
+            }
+            
+            // Extract Asset Symbol Image from card (Phase 1)
+            // Find first img tag in the card
+            const cardImages = bestCard.querySelectorAll('img[src]');
+            for (const img of cardImages) {
+              let src = img.getAttribute('src');
+              if (!src) continue;
+              
+              // Fix protocol
+              if (src.startsWith('//')) {
+                src = 'https:' + src;
+              }
+              
+              // Take first image from static.rate-x.io
+              if (src.includes('static.rate-x.io/img/')) {
+                result.assetSymbolImage = src;
+                break;
+              }
             }
             
             // Only add if we found essential data
@@ -762,10 +812,7 @@ export async function scrapeDetailPage(page, fullAssetName) {
         rangeUpper: null,
         maturity: null,
         maturesIn: null,
-        impliedYield: null,
-        projectBackgroundImage: null,
-        projectName: null,
-        assetSymbolImage: null
+        impliedYield: null
       };
       
       // Extract Range: "10% - 30%" or "10%-30%"
@@ -791,71 +838,6 @@ export async function scrapeDetailPage(page, fullAssetName) {
       const impliedYieldMatch = bodyText.match(/Implied\s+Yield[:\s]*([\d.]+)\s*%/i);
       if (impliedYieldMatch) {
         result.impliedYield = parseFloat(impliedYieldMatch[1]);
-      }
-      
-      // Extract Project Background Image from card div style attribute
-      // Looking for divs with background-image in inline style
-      // Pattern: style="...background-image: url("https://static.rate-x.io/img/v1/1c9857/Hylo.svg")..."
-      const allDivs = document.querySelectorAll('div[style]');
-      let bgImageCount = 0;
-      for (const div of allDivs) {
-        const styleAttr = div.getAttribute('style');
-        if (!styleAttr) continue;
-        
-        // Try to match both quoted and unquoted URLs, with or without https://
-        const bgImageMatch = styleAttr.match(/background-image:\s*url\s*\(\s*["']?((?:https?:)?\/\/static\.rate-x\.io\/[^"')]+)["']?\s*\)/i);
-        if (bgImageMatch) {
-          bgImageCount++;
-          let imageUrl = bgImageMatch[1];
-          
-          // Ensure URL has https: protocol
-          if (imageUrl.startsWith('//')) {
-            imageUrl = 'https:' + imageUrl;
-          }
-          
-          // Only accept if it looks like a project logo (not logo_white.svg)
-          if (!imageUrl.includes('logo_white.svg') && !imageUrl.includes('logo.svg')) {
-            result.projectBackgroundImage = imageUrl;
-            
-            // Extract project name from the URL filename
-            // URL format: https://static.rate-x.io/img/v1/1c9857/Hylo.svg
-            const urlParts = imageUrl.split('/');
-            const filename = urlParts[urlParts.length - 1]; // "Hylo.svg"
-            const projectName = filename.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, ''); // "Hylo"
-            result.projectName = projectName;
-            
-            console.log(`      [DEBUG] Found project background: ${imageUrl} → Project: ${projectName}`);
-            break; // Found it, no need to check more divs
-          }
-        }
-      }
-      if (!result.projectBackgroundImage) {
-        console.log(`      [DEBUG] No project background found (checked ${bgImageCount} background-image divs)`);
-      }
-      
-      // Extract Asset Symbol Image from <img> tag
-      // Looking for: <img src="https://static.rate-x.io/img/v1/361b53/xSOL.svg" alt="xSOL-2511">
-      // Take the FIRST image from static.rate-x.io (it's usually the asset icon)
-      const imgTags = document.querySelectorAll('img[src]');
-      for (const img of imgTags) {
-        let src = img.getAttribute('src');
-        if (!src) continue;
-        
-        // Ensure URL has https: protocol
-        if (src.startsWith('//')) {
-          src = 'https:' + src;
-        }
-        
-        // Accept the first image from static.rate-x.io/img/
-        if (src.includes('static.rate-x.io/img/')) {
-          result.assetSymbolImage = src;
-          console.log(`      [DEBUG] Found asset symbol: ${src}`);
-          break; // Take the first match
-        }
-      }
-      
-      if (!result.assetSymbolImage) {
-        console.log(`      [DEBUG] No asset symbol found`);
       }
       
       return result;
@@ -924,10 +906,8 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
       asset.maturity = detailData.maturity;
       asset.maturesIn = detailData.maturesIn;
       
-      // Add new fields (project background image, project name, asset symbol image)
-      asset.projectBackgroundImage = detailData.projectBackgroundImage;
-      asset.projectName = detailData.projectName;
-      asset.assetSymbolImage = detailData.assetSymbolImage;
+      // Note: projectBackgroundImage, projectName, and assetSymbolImage 
+      // are already set from Phase 1, so we don't touch them here
       
       // Override implied yield with latest value from detail page
       if (detailData.impliedYield !== null) {

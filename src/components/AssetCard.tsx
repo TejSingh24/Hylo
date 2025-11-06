@@ -63,7 +63,8 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
     : null;
 
   // Helper function to format price with appropriate decimals
-  const formatPrice = (price: number): string => {
+  const formatPrice = (price: number | null | undefined): string => {
+    if (price === null || price === undefined) return 'N/A';
     if (price < 0.01) return price.toFixed(4);  // 0.0012 → "0.0012"
     if (price < 0.1) return price.toFixed(3);   // 0.012 → "0.012"
     return price.toFixed(2);                     // 1.234 → "1.23"

@@ -374,11 +374,11 @@ function YieldCalculator() {
         <div className="bg-circle-1"></div>
         <div className="bg-circle-2"></div>
       </div>
-      <div className="relative w-full max-w-7xl mx-auto px-4" style={{paddingBottom:'4rem', minHeight: '100vh'}}>
+      <div className="relative w-full max-w-7xl mx-auto px-4" style={{paddingBottom:'4rem', minHeight: '100vh', paddingLeft: '1rem', paddingRight: '1rem'}}>
         <div className="grid lg:grid-cols-2 gap-12 items-start">
-          <div className="space-y-16 max-w-2xl">
+          <div className="space-y-16 max-w-2xl mx-auto lg:mx-0">
             {/* Header Card */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl" style={{marginBottom:10}}>
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl" style={{marginBottom:10, marginTop: '1rem'}}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg" style={{margin:7}}>
                   <Info className="w-5 h-5 text-white" />
@@ -499,7 +499,7 @@ function YieldCalculator() {
             </div>
           </div>
 
-          <div className="calculator-container">
+          <div className="calculator-container" style={{marginTop: '1rem'}}>
             <div className="calculator-card">
               {/* Header */}
               <div className="card-header">

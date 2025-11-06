@@ -762,7 +762,10 @@ export async function scrapeDetailPage(page, fullAssetName) {
         rangeUpper: null,
         maturity: null,
         maturesIn: null,
-        impliedYield: null
+        impliedYield: null,
+        projectBackgroundImage: null,
+        projectName: null,
+        assetSymbolImage: null
       };
       
       // Extract Range: "10% - 30%" or "10%-30%"
@@ -788,6 +791,38 @@ export async function scrapeDetailPage(page, fullAssetName) {
       const impliedYieldMatch = bodyText.match(/Implied\s+Yield[:\s]*([\d.]+)\s*%/i);
       if (impliedYieldMatch) {
         result.impliedYield = parseFloat(impliedYieldMatch[1]);
+      }
+      
+      // Extract Project Background Image from card div style attribute
+      // Looking for: style="background-image: url("https://static.rate-x.io/img/v1/1c9857/Hylo.svg");"
+      const cardDivs = document.querySelectorAll('div[style*="background-image"]');
+      for (const div of cardDivs) {
+        const styleAttr = div.getAttribute('style');
+        const bgImageMatch = styleAttr.match(/background-image:\s*url\s*\(\s*["']?(https:\/\/static\.rate-x\.io\/[^"')]+)["']?\s*\)/i);
+        if (bgImageMatch) {
+          result.projectBackgroundImage = bgImageMatch[1];
+          
+          // Extract project name from the URL filename
+          // URL format: https://static.rate-x.io/img/v1/1c9857/Hylo.svg
+          const urlParts = bgImageMatch[1].split('/');
+          const filename = urlParts[urlParts.length - 1]; // "Hylo.svg"
+          const projectName = filename.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, ''); // "Hylo"
+          result.projectName = projectName;
+          
+          break; // Found it, no need to check more divs
+        }
+      }
+      
+      // Extract Asset Symbol Image from <img> tag
+      // Looking for: <img src="https://static.rate-x.io/img/v1/361b53/xSOL.svg" alt="xSOL-2511" width="24" height="24">
+      const imgTags = document.querySelectorAll('img[src*="static.rate-x.io"]');
+      for (const img of imgTags) {
+        const src = img.getAttribute('src');
+        // Match URLs that contain the asset symbol
+        if (src && src.includes('static.rate-x.io/img/')) {
+          result.assetSymbolImage = src;
+          break; // Take the first match
+        }
       }
       
       return result;
@@ -856,6 +891,11 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
       asset.maturity = detailData.maturity;
       asset.maturesIn = detailData.maturesIn;
       
+      // Add new fields (project background image, project name, asset symbol image)
+      asset.projectBackgroundImage = detailData.projectBackgroundImage;
+      asset.projectName = detailData.projectName;
+      asset.assetSymbolImage = detailData.assetSymbolImage;
+      
       // Override implied yield with latest value from detail page
       if (detailData.impliedYield !== null) {
         asset.impliedYield = detailData.impliedYield;
@@ -886,6 +926,11 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
         asset.rangeLower = oldAsset.rangeLower;
         asset.rangeUpper = oldAsset.rangeUpper;
         asset.maturity = oldAsset.maturity;
+        
+        // Use old project/asset image data if available
+        asset.projectBackgroundImage = oldAsset.projectBackgroundImage || null;
+        asset.projectName = oldAsset.projectName || null;
+        asset.assetSymbolImage = oldAsset.assetSymbolImage || null;
         
         // Recalculate YT metrics with old data
         const ytMetrics = calculateYtMetrics(
@@ -921,6 +966,9 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
         asset.expectedRecoveryYield = null;
         asset.expectedPointsPerDay = null;
         asset.totalExpectedPoints = null;
+        asset.projectBackgroundImage = null;
+        asset.projectName = null;
+        asset.assetSymbolImage = null;
         console.log(`  ℹ️ New asset ${asset.asset} - detail fields will be null until next run`);
       }
     }

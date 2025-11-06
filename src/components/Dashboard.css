@@ -281,19 +281,20 @@
 }
 
 .home-card-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   color: rgba(203, 213, 225, 0.7);
   padding: 0.5rem 0;
-  padding-left: 1.5rem;
-  position: relative;
   font-size: 0.9rem;
 }
 
+.home-card-features li svg {
+  flex-shrink: 0;
+}
+
 .home-card-features li::before {
-  content: '→';
-  position: absolute;
-  left: 0;
-  color: #8b5cf6;
-  font-weight: bold;
+  content: '';
 }
 
 .home-card-action {

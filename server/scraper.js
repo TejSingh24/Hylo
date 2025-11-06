@@ -4,6 +4,317 @@ import { chmod } from 'fs/promises';
 
 const puppeteer = puppeteerCore;
 
+// Gist configuration
+const GIST_ID = process.env.GIST_ID || 'd3a1db6fc79e168cf5dff8d3a2c11706';
+const GIST_RAW_URL = `https://gist.githubusercontent.com/TejSingh24/${GIST_ID}/raw/ratex-assets.json`;
+
+/**
+ * Fetch existing Gist data for fallback/merge
+ * @returns {Promise<Object>} Map of asset name to asset data
+ */
+export async function fetchExistingGistData() {
+  try {
+    const response = await fetch(GIST_RAW_URL);
+    if (!response.ok) {
+      console.warn('⚠️ Could not fetch existing Gist data (may not exist yet)');
+      return {};
+    }
+    
+    const data = await response.json();
+    
+    // Convert array to map for fast lookup
+    const dataMap = {};
+    if (data.assets && Array.isArray(data.assets)) {
+      data.assets.forEach(asset => {
+        dataMap[asset.asset] = asset;
+      });
+    }
+    
+    console.log(`✅ Loaded ${Object.keys(dataMap).length} assets from existing Gist`);
+    return dataMap;
+  } catch (error) {
+    console.warn('⚠️ Error fetching existing Gist data, starting fresh:', error.message);
+    return {};
+  }
+}
+
+/**
+ * Calculate time until maturity from maturity date
+ * @param {string} maturityUTC - Maturity date string (e.g., "2025-11-29 00:00:00 UTC")
+ * @returns {string} Time until maturity (e.g., "23d 10h")
+ */
+export function calculateMaturesIn(maturityUTC) {
+  try {
+    const maturityDate = new Date(maturityUTC);
+    const now = new Date();
+    const diffMs = maturityDate - now;
+    
+    if (diffMs <= 0) return "Expired";
+    
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    return `${days}d ${hours}h`;
+  } catch (error) {
+    console.warn('Error calculating maturesIn:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Calculate precise days until maturity (including decimal hours)
+ * @param {string} maturity - Maturity date in UTC format
+ * @param {string} lastUpdated - Current timestamp
+ * @returns {number|null} - Days until maturity as decimal (e.g., 23.417)
+ */
+function calculateDaysToMaturity(maturity, lastUpdated) {
+  if (!maturity || !lastUpdated) return null;
+  
+  try {
+    const maturityDate = new Date(maturity);
+    const updatedDate = new Date(lastUpdated);
+    
+    if (isNaN(maturityDate.getTime()) || isNaN(updatedDate.getTime())) {
+      return null;
+    }
+    
+    const diffMs = maturityDate.getTime() - updatedDate.getTime();
+    
+    if (diffMs <= 0) return 0;
+    
+    // Convert milliseconds to days (including decimal hours)
+    const days = diffMs / (24 * 60 * 60 * 1000);
+    
+    return days;
+  } catch (error) {
+    console.warn('Error calculating days to maturity:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Format YT price with adaptive decimal precision (at least 3 non-zero digits)
+ * @param {number} value - Raw YT price value
+ * @returns {number|null} - Formatted value with appropriate decimals
+ */
+function formatYtPrice(value) {
+  if (value === null || value === undefined) return null;
+  
+  const absValue = Math.abs(value);
+  
+  // >= 1.0 → 3 decimals (e.g., 1.234)
+  if (absValue >= 1.0) return parseFloat(value.toFixed(3));
+  
+  // 0.1 to 0.999 → 4 decimals (e.g., 0.1234)
+  if (absValue >= 0.1) return parseFloat(value.toFixed(4));
+  
+  // 0.01 to 0.099 → 5 decimals (e.g., 0.01234)
+  if (absValue >= 0.01) return parseFloat(value.toFixed(5));
+  
+  // 0.001 to 0.0099 → 6 decimals (e.g., 0.001234)
+  if (absValue >= 0.001) return parseFloat(value.toFixed(6));
+  
+  // 0.0001 to 0.00099 → 7 decimals (e.g., 0.0001234)
+  if (absValue >= 0.0001) return parseFloat(value.toFixed(7));
+  
+  // Even smaller → 8 decimals
+  return parseFloat(value.toFixed(8));
+}
+
+/**
+ * Format percentage with adaptive precision (at least 2 non-zero digits)
+ * @param {number} value - Percentage value
+ * @returns {number|null} - Formatted percentage with appropriate decimals
+ */
+function formatPercentage(value) {
+  if (value === null || value === undefined) return null;
+  
+  const absValue = Math.abs(value);
+  
+  if (absValue >= 1.0) return parseFloat(value.toFixed(2));
+  if (absValue >= 0.1) return parseFloat(value.toFixed(2));
+  if (absValue >= 0.01) return parseFloat(value.toFixed(3));
+  if (absValue >= 0.001) return parseFloat(value.toFixed(4));
+  if (absValue >= 0.0001) return parseFloat(value.toFixed(5));
+  return parseFloat(value.toFixed(6));
+}
+
+/**
+ * Calculate YT price using formula: 1 - (1 + r)^(-T)
+ * @param {string} maturity - Maturity date in UTC format
+ * @param {number} yieldRate - Yield rate as percentage (e.g., 62.115)
+ * @param {string} lastUpdated - Timestamp when data was fetched
+ * @returns {number|null} - YT price with adaptive precision, or null if invalid
+ */
+function calculateYtPrice(maturity, yieldRate, lastUpdated) {
+  if (!maturity || yieldRate === null || yieldRate === undefined || !lastUpdated) {
+    return null;
+  }
+  
+  try {
+    const maturityDate = new Date(maturity);
+    const updatedDate = new Date(lastUpdated);
+    
+    if (isNaN(maturityDate.getTime()) || isNaN(updatedDate.getTime())) {
+      return null;
+    }
+    
+    const diffMs = maturityDate.getTime() - updatedDate.getTime();
+    
+    if (diffMs <= 0) return 0; // Maturity passed
+    
+    const T = diffMs / (365 * 24 * 60 * 60 * 1000); // Years
+    const r = yieldRate / 100; // Convert percentage to decimal
+    const ytPrice = 1 - Math.pow(1 + r, -T);
+    
+    return formatYtPrice(ytPrice);
+  } catch (error) {
+    console.warn(`Error calculating YT price:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Calculate all YT-related metrics for an asset
+ * @param {string} maturity - Maturity date
+ * @param {number} impliedYield - Implied yield percentage
+ * @param {number} rangeLower - Lower yield range percentage
+ * @param {number} rangeUpper - Upper yield range percentage
+ * @param {string} lastUpdated - Timestamp when data was fetched
+ * @param {number} leverage - Leverage multiplier
+ * @param {number} apy - Annual Percentage Yield
+ * @param {number} maturityDays - Days until maturity
+ * @param {number} assetBoost - Asset boost multiplier
+ * @returns {Object} All YT metrics (prices, upside, downside, decay, end-day, recovery, points)
+ */
+function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated, leverage, apy, maturityDays, assetBoost) {
+  const result = {
+    ytPriceCurrent: null,
+    ytPriceLower: null,
+    ytPriceUpper: null,
+    upsidePotential: null,
+    downsideRisk: null,
+    endDayCurrentYield: null,
+    endDayLowerYield: null,
+    dailyDecayRate: null,
+    expectedRecoveryYield: null,
+    expectedPointsPerDay: null,
+    totalExpectedPoints: null
+  };
+  
+  if (!maturity || !lastUpdated) return result;
+  
+  try {
+    const maturityDate = new Date(maturity);
+    const updatedDate = new Date(lastUpdated);
+    const diffMs = maturityDate.getTime() - updatedDate.getTime();
+    
+    // Maturity passed - all zeros
+    if (diffMs <= 0) {
+      return {
+        ytPriceCurrent: 0,
+        ytPriceLower: 0,
+        ytPriceUpper: 0,
+        upsidePotential: 0,
+        downsideRisk: 0,
+        endDayCurrentYield: 0,
+        endDayLowerYield: 0,
+        dailyDecayRate: 0,
+        expectedRecoveryYield: 0,
+        expectedPointsPerDay: 0,
+        totalExpectedPoints: 0
+      };
+    }
+    
+    const currentT = diffMs / (365 * 24 * 60 * 60 * 1000); // Years
+    
+    // Calculate YT prices
+    result.ytPriceCurrent = calculateYtPrice(maturity, impliedYield, lastUpdated);
+    result.ytPriceLower = calculateYtPrice(maturity, rangeLower, lastUpdated);
+    result.ytPriceUpper = calculateYtPrice(maturity, rangeUpper, lastUpdated);
+    
+    // Calculate upside/downside (only if all prices available)
+    if (result.ytPriceCurrent && result.ytPriceUpper) {
+      const upside = ((result.ytPriceUpper - result.ytPriceCurrent) / result.ytPriceCurrent) * 100;
+      result.upsidePotential = formatPercentage(upside);
+    }
+    
+    if (result.ytPriceCurrent && result.ytPriceLower) {
+      const downside = ((result.ytPriceCurrent - result.ytPriceLower) / result.ytPriceCurrent) * 100;
+      result.downsideRisk = formatPercentage(downside);
+    }
+    
+    // Only 1 day left edge case
+    if (currentT <= 1/365) {
+      result.dailyDecayRate = 100;
+      result.endDayCurrentYield = 0;
+      result.endDayLowerYield = 0;
+      return result;
+    }
+    
+    // Daily decay rate (time decay with constant yield)
+    if (impliedYield !== null && impliedYield !== undefined) {
+      const tomorrowT = currentT - (1/365);
+      const r = impliedYield / 100;
+      const ytToday = 1 - Math.pow(1 + r, -currentT);
+      const ytTomorrow = 1 - Math.pow(1 + r, -tomorrowT);
+      const decay = ((ytToday - ytTomorrow) / ytToday) * 100;
+      result.dailyDecayRate = formatPercentage(decay);
+    }
+    
+    // End-day scenarios: 1 day left with different yield scenarios
+    const T_oneDay = 1 / 365;
+    
+    // Scenario 1: 1 day left with CURRENT implied yield - show REMAINING %
+    if (impliedYield !== null && impliedYield !== undefined && result.ytPriceCurrent) {
+      const r_current = impliedYield / 100;
+      const ytEndCurrentYield = 1 - Math.pow(1 + r_current, -T_oneDay);
+      const remainingCurrentYield = (ytEndCurrentYield / result.ytPriceCurrent) * 100;
+      result.endDayCurrentYield = formatPercentage(remainingCurrentYield);
+    }
+    
+    // Scenario 2: 1 day left with LOWER range yield (worst case) - show REMAINING %
+    if (rangeLower !== null && rangeLower !== undefined && result.ytPriceCurrent) {
+      const r_lower = rangeLower / 100;
+      const ytEndLowerYield = 1 - Math.pow(1 + r_lower, -T_oneDay);
+      const remainingLowerYield = (ytEndLowerYield / result.ytPriceCurrent) * 100;
+      result.endDayLowerYield = formatPercentage(remainingLowerYield);
+    }
+    
+    // Calculate Expected Recovery Yield (Net Yield %)
+    // Use precise days from maturity date, fallback to maturityDays
+    const preciseDays = calculateDaysToMaturity(maturity, lastUpdated);
+    const daysToUse = preciseDays !== null ? preciseDays : maturityDays;
+    
+    if (leverage !== null && leverage !== undefined && apy !== null && apy !== undefined && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
+      const apyDecimal = apy / 100; // Convert percentage to decimal
+      const grossYield = leverage * (Math.pow(1 + apyDecimal, 1/365) - 1) * 365 * (daysToUse/365) * 100;
+      const netYield = grossYield * 0.995; // Platform takes 0.5% of yield
+      result.expectedRecoveryYield = formatPercentage(netYield);
+    }
+    
+    // Calculate Total Expected Points (with $1 deposit)
+    // Formula: leverage × assetBoost × depositAmount (default $1)
+    if (leverage !== null && leverage !== undefined && assetBoost !== null && assetBoost !== undefined) {
+      const depositAmount = 1; // Default deposit amount
+      const totalPoints = leverage * assetBoost * depositAmount;
+      result.totalExpectedPoints = Math.round(totalPoints); // Round to whole number
+    }
+    
+    // Calculate Expected Points Per Day
+    // Use precise days from maturity date, fallback to maturityDays
+    if (result.totalExpectedPoints !== null && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
+      const pointsPerDay = result.totalExpectedPoints / daysToUse;
+      result.expectedPointsPerDay = Math.round(pointsPerDay); // Round to whole number
+    }
+    
+    return result;
+  } catch (error) {
+    console.warn(`Error calculating YT metrics:`, error.message);
+    return result;
+  }
+}
+
 /**
  * Scrapes asset data from Rate-X leverage page
  * @param {string} assetName - The name of the asset to scrape (e.g., 'HyloSOL', 'HYusd', 'sHYUSD', 'xSOL')
@@ -148,7 +459,13 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
         maturityDays: null,
         assetBoost: null,
         ratexBoost: null,
-        impliedYield: null
+        impliedYield: null,
+        
+        // Phase 2 fields - not available from cards page
+        rangeLower: null,
+        rangeUpper: null,
+        maturity: null,
+        maturesIn: null
       };
       
       // Extract data using regex patterns on the full card text
@@ -357,7 +674,18 @@ export async function scrapeAllAssets() {
               maturityDays: null,
               assetBoost: null,
               ratexBoost: null,
-              impliedYield: null
+              impliedYield: null,
+              
+              // Visual assets from card (extracted in Phase 1)
+              projectBackgroundImage: null,
+              projectName: null,
+              assetSymbolImage: null,
+              
+              // Phase 2 fields - will be populated later
+              rangeLower: null,
+              rangeUpper: null,
+              maturity: null,
+              maturesIn: null
             };
             
             // Extract Leverage (Yield Exposure)
@@ -398,6 +726,57 @@ export async function scrapeAllAssets() {
               result.ratexBoost = 1;
             }
             
+            // Extract Project Background Image from card div (Phase 1)
+            // Card should have inline style with background-image
+            const cardDiv = bestCard.querySelector('div[style*="background-image"]') || bestCard;
+            if (cardDiv) {
+              const styleAttr = cardDiv.getAttribute('style');
+              if (styleAttr) {
+                const bgImageMatch = styleAttr.match(/background-image:\s*url\s*\(\s*["']?((?:https?:)?\/\/static\.rate-x\.io\/[^"')]+)["']?\s*\)/i);
+                if (bgImageMatch) {
+                  let imageUrl = bgImageMatch[1];
+                  
+                  // Fix protocol
+                  if (imageUrl.startsWith('//')) {
+                    imageUrl = 'https:' + imageUrl;
+                  }
+                  
+                  result.projectBackgroundImage = imageUrl;
+                  
+                  // Extract project name from filename
+                  const urlParts = imageUrl.split('/');
+                  const filename = urlParts[urlParts.length - 1];
+                  let projectName = filename.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, '');
+                  
+                  // Remove URL encoding and suffixes like %20BG, _BG, etc.
+                  projectName = decodeURIComponent(projectName);
+                  projectName = projectName.replace(/(%20BG|_BG|\s+BG)$/i, '');
+                  projectName = projectName.trim();
+                  
+                  result.projectName = projectName;
+                }
+              }
+            }
+            
+            // Extract Asset Symbol Image from card (Phase 1)
+            // Find first img tag in the card
+            const cardImages = bestCard.querySelectorAll('img[src]');
+            for (const img of cardImages) {
+              let src = img.getAttribute('src');
+              if (!src) continue;
+              
+              // Fix protocol
+              if (src.startsWith('//')) {
+                src = 'https:' + src;
+              }
+              
+              // Take first image from static.rate-x.io
+              if (src.includes('static.rate-x.io/img/')) {
+                result.assetSymbolImage = src;
+                break;
+              }
+            }
+            
             // Only add if we found essential data
             if (result.leverage !== null && result.maturityDays !== null) {
               assets.push(result);
@@ -424,3 +803,208 @@ export async function scrapeAllAssets() {
     throw error;
   }
 }
+
+/**
+ * Scrape detail page for a single asset
+ * @param {Object} page - Puppeteer page instance
+ * @param {string} fullAssetName - Full asset name (e.g., "hyloSOL-2511")
+ * @returns {Promise<Object>} Detail data including range, maturity, maturesIn, impliedYield
+ */
+export async function scrapeDetailPage(page, fullAssetName) {
+  const url = `https://app.rate-x.io/liquidity/slp?symbol=${encodeURIComponent(fullAssetName)}&tab=Detail`;
+  
+  try {
+    await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
+    });
+    
+    // Wait for content to load
+    await page.waitForTimeout(2000);
+    
+    // Extract detail page data
+    const detailData = await page.evaluate(() => {
+      const bodyText = document.body.innerText;
+      
+      const result = {
+        rangeLower: null,
+        rangeUpper: null,
+        maturity: null,
+        maturesIn: null,
+        impliedYield: null
+      };
+      
+      // Extract Range: "10% - 30%" or "10%-30%"
+      const rangeMatch = bodyText.match(/Range[^\d]*([\d]+)%\s*-\s*([\d]+)%/i);
+      if (rangeMatch) {
+        result.rangeLower = parseInt(rangeMatch[1]);
+        result.rangeUpper = parseInt(rangeMatch[2]);
+      }
+      
+      // Extract Maturity: "2025-11-29 00:00:00 UTC"
+      const maturityMatch = bodyText.match(/Maturity[^\d]*([\d]{4}-[\d]{2}-[\d]{2}\s+[\d]{2}:[\d]{2}:[\d]{2}\s+UTC)/i);
+      if (maturityMatch) {
+        result.maturity = maturityMatch[1];
+      }
+      
+      // Extract Matures In: "23d 10h"
+      const maturesInMatch = bodyText.match(/Matures\s+in[^\d]*([\d]+d\s+[\d]+h)/i);
+      if (maturesInMatch) {
+        result.maturesIn = maturesInMatch[1];
+      }
+      
+      // Extract Implied Yield (updated value from detail page)
+      const impliedYieldMatch = bodyText.match(/Implied\s+Yield[:\s]*([\d.]+)\s*%/i);
+      if (impliedYieldMatch) {
+        result.impliedYield = parseFloat(impliedYieldMatch[1]);
+      }
+      
+      return result;
+    });
+    
+    return detailData;
+    
+  } catch (error) {
+    console.warn(`  ⚠️ Error scraping detail page for ${fullAssetName}:`, error.message);
+    throw error;
+  }
+}
+
+/**
+ * Scrape detail page with retry logic
+ * @param {Object} page - Puppeteer page instance
+ * @param {string} fullAssetName - Full asset name
+ * @param {number} maxRetries - Maximum number of retry attempts (default: 2)
+ * @returns {Promise<Object|null>} Detail data or null if all retries fail
+ */
+export async function scrapeDetailPageWithRetry(page, fullAssetName, maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`    Attempt ${attempt}/${maxRetries}...`);
+      const detailData = await scrapeDetailPage(page, fullAssetName);
+      
+      // Validate that we got at least some data
+      if (detailData.rangeLower !== null || detailData.maturity !== null) {
+        return detailData;
+      } else {
+        throw new Error('No valid data extracted from detail page');
+      }
+    } catch (error) {
+      console.warn(`    Attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        console.log(`    Retrying in 2 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  }
+  
+  return null; // All retries failed
+}
+
+/**
+ * Scrape detail pages for all assets (Phase 2)
+ * @param {Object} page - Puppeteer page instance
+ * @param {Array} assets - Array of asset objects from Phase 1
+ * @param {Object} existingGistData - Map of existing Gist data for fallback
+ * @returns {Promise<Array>} Assets with detail page data merged
+ */
+export async function scrapeDetailPages(page, assets, existingGistData) {
+  console.log('🔍 PHASE 2: Fetching detail pages...');
+  const lastUpdated = new Date().toISOString(); // Single timestamp for all calculations
+  
+  for (const asset of assets) {
+    console.log(`  → Fetching details for ${asset.asset}...`);
+    
+    const detailData = await scrapeDetailPageWithRetry(page, asset.asset, 2);
+    
+    if (detailData) {
+      // Success - update with fresh data
+      asset.rangeLower = detailData.rangeLower;
+      asset.rangeUpper = detailData.rangeUpper;
+      asset.maturity = detailData.maturity;
+      asset.maturesIn = detailData.maturesIn;
+      
+      // Note: projectBackgroundImage, projectName, and assetSymbolImage 
+      // are already set from Phase 1, so we don't touch them here
+      
+      // Override implied yield with latest value from detail page
+      if (detailData.impliedYield !== null) {
+        asset.impliedYield = detailData.impliedYield;
+      }
+      
+      // Calculate all YT metrics
+      const ytMetrics = calculateYtMetrics(
+        asset.maturity,
+        asset.impliedYield,
+        asset.rangeLower,
+        asset.rangeUpper,
+        lastUpdated,
+        asset.leverage,
+        asset.apy,
+        asset.maturityDays,
+        asset.assetBoost
+      );
+      
+      Object.assign(asset, ytMetrics);
+      
+      console.log(`  ✅ ${asset.asset}: Range ${detailData.rangeLower}-${detailData.rangeUpper}%, YT Current ${ytMetrics.ytPriceCurrent}`);
+    } else {
+      // Failed after retries - use old Gist data for DETAIL fields only
+      console.warn(`  ⚠️ Failed to fetch ${asset.asset}, using fallback data`);
+      
+      const oldAsset = existingGistData[asset.asset];
+      if (oldAsset) {
+        // Use old detail page data (Phase 2 fields only)
+        asset.rangeLower = oldAsset.rangeLower;
+        asset.rangeUpper = oldAsset.rangeUpper;
+        asset.maturity = oldAsset.maturity;
+        
+        // NOTE: DO NOT overwrite Phase 1 fields (projectBackgroundImage, projectName, assetSymbolImage)
+        // Those were just scraped fresh in Phase 1, keep them!
+        
+        // Recalculate YT metrics with old data
+        const ytMetrics = calculateYtMetrics(
+          asset.maturity,
+          asset.impliedYield,
+          asset.rangeLower,
+          asset.rangeUpper,
+          lastUpdated,
+          asset.leverage,
+          asset.apy,
+          asset.maturityDays,
+          asset.assetBoost
+        );
+        
+        Object.assign(asset, ytMetrics);
+        
+        // Recalculate maturesIn from old maturity if available
+        if (oldAsset.maturity) {
+          asset.maturesIn = calculateMaturesIn(oldAsset.maturity);
+          console.log(`  📊 Using cached data with recalculated maturesIn: ${asset.maturesIn}`);
+        } else {
+          asset.maturesIn = null;
+        }
+      } else {
+        // New asset with no old data - set Phase 2 fields to null
+        // NOTE: Phase 1 fields (projectBackgroundImage, projectName, assetSymbolImage) 
+        // are already set from Phase 1, so we keep those
+        asset.ytPriceCurrent = null;
+        asset.ytPriceLower = null;
+        asset.ytPriceUpper = null;
+        asset.upsidePotential = null;
+        asset.downsideRisk = null;
+        asset.endDayMinimumPct = null;
+        asset.dailyDecayRate = null;
+        asset.expectedRecoveryYield = null;
+        asset.expectedPointsPerDay = null;
+        asset.totalExpectedPoints = null;
+        console.log(`  ℹ️ New asset ${asset.asset} - detail fields will be null until next run`);
+      }
+    }
+  }
+  
+  console.log('✅ Phase 2 complete');
+  return assets;
+}
+

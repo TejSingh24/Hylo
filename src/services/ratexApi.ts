@@ -12,6 +12,32 @@ export interface AssetData {
   assetBoost: number | null;
   ratexBoost: number | null;
   impliedYield: number | null; // Implied Yield percentage (e.g., 62.115)
+  
+  // Detail page fields (scraped from liquidity detail page)
+  rangeLower: number | null;   // Lower bound of range (e.g., 10 from "10% - 30%")
+  rangeUpper: number | null;   // Upper bound of range (e.g., 30 from "10% - 30%")
+  maturity: string | null;     // Maturity date (e.g., "2025-11-29 00:00:00 UTC")
+  maturesIn: string | null;    // Time until maturity (e.g., "23d 10h")
+  
+  // Project and asset visual assets
+  projectBackgroundImage: string | null;  // Background image URL for project (e.g., "https://static.rate-x.io/img/v1/1c9857/Hylo.svg")
+  projectName: string | null;             // Project name extracted from background image (e.g., "Hylo")
+  assetSymbolImage: string | null;        // Asset symbol icon URL (e.g., "https://static.rate-x.io/img/v1/361b53/xSOL.svg")
+  
+  // YT Price calculations (calculated in backend, stored in Gist)
+  ytPriceCurrent: number | null;  // YT price using impliedYield
+  ytPriceLower: number | null;    // YT price using rangeLower
+  ytPriceUpper: number | null;    // YT price using rangeUpper
+  upsidePotential: number | null; // Percentage upside (ytUpper vs ytCurrent)
+  downsideRisk: number | null;    // Percentage downside (ytCurrent vs ytLower)
+  endDayCurrentYield: number | null; // Loss % if 1 day left with current yield
+  endDayLowerYield: number | null;   // Loss % if 1 day left with lower yield (worst case)
+  dailyDecayRate: number | null;   // Daily value loss % due to time passing
+  
+  // Yield and Points calculations (calculated in backend, stored in Gist)
+  expectedRecoveryYield: number | null;  // Net yield % (gross × 0.995)
+  expectedPointsPerDay: number | null;   // Points/day (with $1 deposit)
+  totalExpectedPoints: number | null;    // Total points (with $1 deposit)
 }
 
 export interface GistResponse {
@@ -80,7 +106,7 @@ export async function getLastUpdated(): Promise<string> {
  * Kept for compatibility, but returns current data
  */
 export async function refreshCache(): Promise<AssetData[]> {
-  console.log('Note: Data is automatically updated by GitHub Actions every 5 minutes');
+  console.log('Note: Data is automatically updated every 5 minutes. If data is older than 10 minutes, a hard refresh (1-2 minutes) updates all metrics to ensure accuracy.');
   return fetchAllAssets();
 }
 
@@ -140,9 +166,29 @@ export async function triggerWorkflowRefresh(): Promise<boolean> {
 
 /**
  * Check data age and trigger refresh if needed (>10 minutes old)
+ * Uses sessionStorage to prevent multiple triggers in the same session
  */
 export async function checkAndRefreshIfStale(): Promise<void> {
   try {
+    // Check if we already triggered a refresh recently (within 10 minutes)
+    let lastTriggered: string | null = null;
+    try {
+      lastTriggered = sessionStorage.getItem('ratex_last_trigger');
+    } catch (storageError) {
+      console.log('⚠️ sessionStorage unavailable, will check data age only');
+    }
+    
+    const now = Date.now();
+    
+    if (lastTriggered) {
+      const minutesSinceLastTrigger = Math.floor((now - parseInt(lastTriggered)) / 60000);
+      if (minutesSinceLastTrigger < 10) {
+        console.log(`⏭️ Refresh already triggered ${minutesSinceLastTrigger} mins ago, skipping`);
+        return;
+      }
+    }
+
+    // Check data age
     const lastUpdated = await getLastUpdated();
     
     if (lastUpdated === 'Unknown') {
@@ -150,16 +196,25 @@ export async function checkAndRefreshIfStale(): Promise<void> {
       return;
     }
 
-    const now = new Date();
     const updated = new Date(lastUpdated);
-    const ageMs = now.getTime() - updated.getTime();
+    const ageMs = now - updated.getTime();
     const ageMinutes = Math.floor(ageMs / 60000);
 
     console.log(`📊 Data age: ${ageMinutes} minutes`);
 
     if (ageMinutes > 10) {
       console.log(`🔄 Data is stale (${ageMinutes} mins old), triggering refresh...`);
-      await triggerWorkflowRefresh();
+      const triggered = await triggerWorkflowRefresh();
+      
+      // Store trigger timestamp only if successful and sessionStorage is available
+      if (triggered) {
+        try {
+          sessionStorage.setItem('ratex_last_trigger', now.toString());
+          console.log('✅ Trigger timestamp saved to sessionStorage');
+        } catch (storageError) {
+          console.log('⚠️ Could not save to sessionStorage, but trigger was successful');
+        }
+      }
     } else {
       console.log(`✅ Data is fresh (${ageMinutes} mins old), no refresh needed`);
     }

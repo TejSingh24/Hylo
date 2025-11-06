@@ -835,61 +835,27 @@ export async function scrapeDetailPage(page, fullAssetName) {
       
       // Extract Asset Symbol Image from <img> tag
       // Looking for: <img src="https://static.rate-x.io/img/v1/361b53/xSOL.svg" alt="xSOL-2511">
-      // Need to filter out Rate-X logo and only get asset-specific images
+      // Take the FIRST image from static.rate-x.io (it's usually the asset icon)
       const imgTags = document.querySelectorAll('img[src]');
-      let imageCount = 0;
       for (const img of imgTags) {
         let src = img.getAttribute('src');
         if (!src) continue;
-        
-        imageCount++;
         
         // Ensure URL has https: protocol
         if (src.startsWith('//')) {
           src = 'https:' + src;
         }
         
-        // Only accept images from static.rate-x.io that are NOT logos
-        if (src.includes('static.rate-x.io/img/') && 
-            !src.includes('logo_white.svg') && 
-            !src.includes('logo.svg') &&
-            !src.includes('RateX')) {
-          
-          // Additional validation: check if alt attribute contains asset-like pattern (e.g., "xSOL-2511")
-          const alt = img.getAttribute('alt');
-          if (alt && alt.match(/[A-Za-z0-9*+\-]+-\d{4}/)) {
-            result.assetSymbolImage = src;
-            console.log(`      [DEBUG] Found asset symbol: ${src} (alt="${alt}")`);
-            break;
-          }
-        }
-      }
-      
-      // Fallback: if no image with alt found, try to find any non-logo asset image
-      if (!result.assetSymbolImage) {
-        console.log(`      [DEBUG] No asset symbol with alt found, trying fallback...`);
-        for (const img of imgTags) {
-          let src = img.getAttribute('src');
-          if (!src) continue;
-          
-          if (src.startsWith('//')) {
-            src = 'https:' + src;
-          }
-          
-          if (src.includes('static.rate-x.io/img/') && 
-              !src.includes('logo_white.svg') && 
-              !src.includes('logo.svg') &&
-              !src.includes('RateX') &&
-              src.match(/\/[A-Za-z0-9*+]+\.svg$/)) { // Ends with AssetName.svg
-            result.assetSymbolImage = src;
-            console.log(`      [DEBUG] Found via fallback: ${src}`);
-            break;
-          }
+        // Accept the first image from static.rate-x.io/img/
+        if (src.includes('static.rate-x.io/img/')) {
+          result.assetSymbolImage = src;
+          console.log(`      [DEBUG] Found asset symbol: ${src}`);
+          break; // Take the first match
         }
       }
       
       if (!result.assetSymbolImage) {
-        console.log(`      [DEBUG] No asset symbol found (checked ${imageCount} images)`);
+        console.log(`      [DEBUG] No asset symbol found`);
       }
       
       return result;

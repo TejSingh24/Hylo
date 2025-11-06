@@ -13,6 +13,7 @@ const StrategyDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('maturity');
   const [selectedProjects, setSelectedProjects] = useState<string[]>(['Hylo']);
+  const [depositAmount, setDepositAmount] = useState<number>(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -283,6 +284,23 @@ const StrategyDashboard: React.FC = () => {
           >
             Others <span className="filter-count">{getProjectCount('Others')}</span>
           </button>
+          
+          {/* Amount Input */}
+          <div className="amount-input-container">
+            <label className="amount-label">Deposit Amount</label>
+            <div className="amount-input-wrapper">
+              <span className="amount-currency">$</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                className="amount-input"
+                placeholder="1"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Content */}
@@ -309,7 +327,7 @@ const StrategyDashboard: React.FC = () => {
         ) : (
           <div className="dashboard-grid">
             {filteredAssets.map((asset) => (
-              <AssetCard key={asset.asset} asset={asset} />
+              <AssetCard key={asset.asset} asset={asset} depositAmount={depositAmount} />
             ))}
           </div>
         )}

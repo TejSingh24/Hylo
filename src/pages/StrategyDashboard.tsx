@@ -132,14 +132,12 @@ const StrategyDashboard: React.FC = () => {
   return (
     <div className="dashboard-page">
       <div className="dashboard-container">
-        {/* Header */}
-        <div className="dashboard-header">
-          <div className="dashboard-title-section">
-            <h1 className="dashboard-title">Strategy Dashboard</h1>
-            <p className="dashboard-subtitle">Monitor your leveraged yield positions</p>
-          </div>
-
-          {lastUpdated && (
+      {/* Header */}
+      <div className="dashboard-header">
+        <div className="dashboard-title-section">
+          <h1 className="dashboard-title">YT's Strategy/Risk Dashboard</h1>
+          <p className="dashboard-subtitle">Monitor leveraged yield positions</p>
+        </div>          {lastUpdated && (
             <div className="dashboard-updated">
               Last updated: {getRelativeTime(lastUpdated)}
             </div>

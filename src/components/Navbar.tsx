@@ -14,8 +14,8 @@ const Navbar: React.FC = () => {
     <nav className="navbar">
       <div className="navbar-container">
         <div className="navbar-brand">
-          <h1 className="navbar-title">Hylo</h1>
-          <span className="navbar-subtitle">Yield Toolkit</span>
+          <h1 className="navbar-title">Hylo-RateX</h1>
+          <span className="navbar-subtitle">Community Hub</span>
         </div>
 
         <div className="navbar-links">

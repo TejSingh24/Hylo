@@ -100,7 +100,7 @@ export async function getLastUpdated(): Promise<string> {
  * Kept for compatibility, but returns current data
  */
 export async function refreshCache(): Promise<AssetData[]> {
-  console.log('Note: Data is automatically updated by GitHub Actions every 5 minutes');
+  console.log('Note: Data is automatically updated every 5 minutes. If data is older than 10 minutes, a hard refresh (1-2 minutes) updates all metrics to ensure accuracy.');
   return fetchAllAssets();
 }
 

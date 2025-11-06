@@ -67,12 +67,32 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset }) => {
     : 'N/A';
 
   return (
-    <div className="asset-card">
+    <div 
+      className="asset-card"
+      style={{
+        backgroundImage: asset.projectBackgroundImage 
+          ? `url("${asset.projectBackgroundImage}")`
+          : undefined,
+        backgroundSize: 'auto 100%',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right top'
+      }}
+    >
       {/* Header Section */}
       <div className="asset-card-header">
         <div className="asset-info">
           <div className="asset-icon">
-            {getAssetIconLetter(asset.baseAsset || asset.asset)}
+            {asset.assetSymbolImage ? (
+              <img 
+                src={asset.assetSymbolImage} 
+                alt={asset.asset} 
+                width="24" 
+                height="24"
+                style={{ borderRadius: '50%' }}
+              />
+            ) : (
+              getAssetIconLetter(asset.baseAsset || asset.asset)
+            )}
           </div>
           <div className="asset-name-section">
             <h3 className="asset-name">{asset.asset}</h3>

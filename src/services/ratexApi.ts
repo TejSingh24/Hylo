@@ -19,6 +19,11 @@ export interface AssetData {
   maturity: string | null;     // Maturity date (e.g., "2025-11-29 00:00:00 UTC")
   maturesIn: string | null;    // Time until maturity (e.g., "23d 10h")
   
+  // Project and asset visual assets
+  projectBackgroundImage: string | null;  // Background image URL for project (e.g., "https://static.rate-x.io/img/v1/1c9857/Hylo.svg")
+  projectName: string | null;             // Project name extracted from background image (e.g., "Hylo")
+  assetSymbolImage: string | null;        // Asset symbol icon URL (e.g., "https://static.rate-x.io/img/v1/361b53/xSOL.svg")
+  
   // YT Price calculations (calculated in backend, stored in Gist)
   ytPriceCurrent: number | null;  // YT price using impliedYield
   ytPriceLower: number | null;    // YT price using rangeLower

@@ -663,6 +663,11 @@ export async function scrapeAllAssets() {
               ratexBoost: null,
               impliedYield: null,
               
+              // Visual assets from card (extracted in Phase 1)
+              projectBackgroundImage: null,
+              projectName: null,
+              assetSymbolImage: null,
+              
               // Phase 2 fields - will be populated later
               rangeLower: null,
               rangeUpper: null,
@@ -706,6 +711,51 @@ export async function scrapeAllAssets() {
             } else if (boostMatches && boostMatches.length === 1) {
               result.assetBoost = parseFloat(boostMatches[0].replace(/x/i, ''));
               result.ratexBoost = 1;
+            }
+            
+            // Extract Project Background Image from card div (Phase 1)
+            // Card should have inline style with background-image
+            const cardDiv = bestCard.querySelector('div[style*="background-image"]') || bestCard;
+            if (cardDiv) {
+              const styleAttr = cardDiv.getAttribute('style');
+              if (styleAttr) {
+                const bgImageMatch = styleAttr.match(/background-image:\s*url\s*\(\s*["']?((?:https?:)?\/\/static\.rate-x\.io\/[^"')]+)["']?\s*\)/i);
+                if (bgImageMatch) {
+                  let imageUrl = bgImageMatch[1];
+                  
+                  // Fix protocol
+                  if (imageUrl.startsWith('//')) {
+                    imageUrl = 'https:' + imageUrl;
+                  }
+                  
+                  result.projectBackgroundImage = imageUrl;
+                  
+                  // Extract project name from filename
+                  const urlParts = imageUrl.split('/');
+                  const filename = urlParts[urlParts.length - 1];
+                  const projectName = filename.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, '');
+                  result.projectName = projectName;
+                }
+              }
+            }
+            
+            // Extract Asset Symbol Image from card (Phase 1)
+            // Find first img tag in the card
+            const cardImages = bestCard.querySelectorAll('img[src]');
+            for (const img of cardImages) {
+              let src = img.getAttribute('src');
+              if (!src) continue;
+              
+              // Fix protocol
+              if (src.startsWith('//')) {
+                src = 'https:' + src;
+              }
+              
+              // Take first image from static.rate-x.io
+              if (src.includes('static.rate-x.io/img/')) {
+                result.assetSymbolImage = src;
+                break;
+              }
             }
             
             // Only add if we found essential data
@@ -856,6 +906,9 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
       asset.maturity = detailData.maturity;
       asset.maturesIn = detailData.maturesIn;
       
+      // Note: projectBackgroundImage, projectName, and assetSymbolImage 
+      // are already set from Phase 1, so we don't touch them here
+      
       // Override implied yield with latest value from detail page
       if (detailData.impliedYield !== null) {
         asset.impliedYield = detailData.impliedYield;
@@ -878,14 +931,18 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
       
       console.log(`  ✅ ${asset.asset}: Range ${detailData.rangeLower}-${detailData.rangeUpper}%, YT Current ${ytMetrics.ytPriceCurrent}`);
     } else {
-      // Failed after retries - use old Gist data or calculate
+      // Failed after retries - use old Gist data for DETAIL fields only
       console.warn(`  ⚠️ Failed to fetch ${asset.asset}, using fallback data`);
       
       const oldAsset = existingGistData[asset.asset];
       if (oldAsset) {
+        // Use old detail page data (Phase 2 fields only)
         asset.rangeLower = oldAsset.rangeLower;
         asset.rangeUpper = oldAsset.rangeUpper;
         asset.maturity = oldAsset.maturity;
+        
+        // NOTE: DO NOT overwrite Phase 1 fields (projectBackgroundImage, projectName, assetSymbolImage)
+        // Those were just scraped fresh in Phase 1, keep them!
         
         // Recalculate YT metrics with old data
         const ytMetrics = calculateYtMetrics(
@@ -910,7 +967,9 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
           asset.maturesIn = null;
         }
       } else {
-        // New asset with no old data - set all YT metrics to null
+        // New asset with no old data - set Phase 2 fields to null
+        // NOTE: Phase 1 fields (projectBackgroundImage, projectName, assetSymbolImage) 
+        // are already set from Phase 1, so we keep those
         asset.ytPriceCurrent = null;
         asset.ytPriceLower = null;
         asset.ytPriceUpper = null;

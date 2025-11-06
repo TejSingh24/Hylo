@@ -71,7 +71,7 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset }) => {
       className="asset-card"
       style={{
         backgroundImage: asset.projectBackgroundImage 
-          ? `url("${asset.projectBackgroundImage}")`
+          ? `linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.01)), url("${asset.projectBackgroundImage}")`
           : undefined,
         backgroundSize: 'auto 100%',
         backgroundRepeat: 'no-repeat',

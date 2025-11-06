@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, TrendingDown, Check } from 'lucide-react';
+import { Info, Check } from 'lucide-react';
 import type { AssetData } from '../services/ratexApi';
 import Timer from './Timer';
 import { RateXIcon, AssetBoostIcon } from './Icons';
@@ -61,9 +61,16 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset }) => {
     ? `Range: ${formatPercent(asset.rangeLower, 1)} - ${formatPercent(asset.rangeUpper, 1)}`
     : null;
 
+  // Helper function to format price with appropriate decimals
+  const formatPrice = (price: number): string => {
+    if (price < 0.01) return price.toFixed(4);  // 0.0012 → "0.0012"
+    if (price < 0.1) return price.toFixed(3);   // 0.012 → "0.012"
+    return price.toFixed(2);                     // 1.234 → "1.23"
+  };
+
   // Calculate price range (without $ symbol)
   const priceRange = asset.ytPriceLower !== null && asset.ytPriceUpper !== null
-    ? `${asset.ytPriceLower.toFixed(2)} - ${asset.ytPriceUpper.toFixed(2)}`
+    ? `${formatPrice(asset.ytPriceLower)} - ${formatPrice(asset.ytPriceUpper)}`
     : 'N/A';
 
   return (
@@ -71,7 +78,7 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset }) => {
       className="asset-card"
       style={{
         backgroundImage: asset.projectBackgroundImage 
-          ? `url("${asset.projectBackgroundImage}")`
+          ? `linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.2)), url("${asset.projectBackgroundImage}")`
           : undefined,
         backgroundSize: 'auto 100%',
         backgroundRepeat: 'no-repeat',
@@ -164,13 +171,22 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset }) => {
 
         <div className="metric-box-secondary metric-lastday">
           <div className="metric-label-small">Last Day YT Value</div>
-          <div className="metric-value-secondary metric-value-danger">
-            {asset.endDayMinimumPct !== null ? (
-              <>
-                {formatPercent(asset.endDayMinimumPct)}
-                {asset.endDayMinimumPct < 0 && <TrendingDown className="metric-icon-danger" size={18} />}
-              </>
-            ) : 'N/A'}
+          <div className="lastday-split">
+            <div className="lastday-item">
+              <div className="metric-value-secondary metric-value-danger">
+                {formatPercent(asset.endDayCurrentYield)}
+              </div>
+              <div className="lastday-sublabel">Current Implied Yield</div>
+            </div>
+            
+            <div className="lastday-divider"></div>
+            
+            <div className="lastday-item">
+              <div className="metric-value-secondary metric-value-danger">
+                {formatPercent(asset.endDayLowerYield)}
+              </div>
+              <div className="lastday-sublabel">Yield's Lower Range</div>
+            </div>
           </div>
         </div>
       </div>

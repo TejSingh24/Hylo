@@ -398,8 +398,8 @@ const StrategyDashboard: React.FC = () => {
                 <div className="info-section">
                   <h3>PERFORMANCE METRICS</h3>
                   <ul>
-                    <li><strong>Expected Recovery Yield:</strong> Percentage Recovery of underlyin asset (Not $ value) possible through Yields</li>
-                    <li><strong>Daily Decay Rate:</strong> Daily percentage decrease in yield value due to time passing, for the same Implied Yield</li>
+                    <li><strong>Expected Recovery Yield:</strong> Total Percentage Recovery of underlyin asset (Not $ value) possible through Yields, if hold till maturity</li>
+                    <li><strong>Daily Decay Rate:</strong> Daily percentage decrease in yield value due to time passing, for the same Implied Yield. Decay happens during Yield distribution</li>
                     <li><strong>Upside Potential:</strong> Maximum potential gain possible for today if implied yield increases to upper range (Approx. 0.5-1%)</li>
                     <li><strong>Downside Risk:</strong> Maximum Potential loss possible for today if implied yield decreases to lower range (Approx. 0.5-1%)</li>
                   </ul>

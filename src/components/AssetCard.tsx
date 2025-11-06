@@ -163,7 +163,15 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
         <div className="metric-box-secondary metric-recovery">
           <div className="recovery-split">
             <div className="recovery-item">
-              <div className="recovery-sublabel">Exp. Recovery Yield</div>
+              <div className="recovery-sublabel">
+                Recovery Yield
+                <div className="points-info-tooltip">
+                  <Info size={10} className="info-icon-tiny" />
+                  <div className="tooltip-content-small right-aligned">
+                    Total Recovery Yield possible if hold till maturity
+                  </div>
+                </div>
+              </div>
               <div className="metric-value-secondary">
                 {formatPercent(expectedRecoveryYield)}
                 {expectedRecoveryYield !== null && expectedRecoveryYield > 0 && (

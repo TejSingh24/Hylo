@@ -1261,6 +1261,12 @@
   text-align: center;
 }
 
+.tooltip-content-small.right-aligned {
+  right: auto;
+  left: 0;
+  white-space: nowrap;
+}
+
 .points-info-tooltip:hover .tooltip-content-small {
   opacity: 1;
   visibility: visible;

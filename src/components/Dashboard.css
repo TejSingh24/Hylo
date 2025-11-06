@@ -356,21 +356,20 @@
 .dashboard-header {
   margin-bottom: 2rem;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .dashboard-title-section {
-  flex: 1;
-  min-width: 250px;
+  text-align: center;
+  margin-bottom: 0.25rem;
 }
 
 .dashboard-title {
   font-size: 2.5rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #ffffff 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -385,7 +384,7 @@
 .dashboard-updated {
   color: rgba(148, 163, 184, 0.6);
   font-size: 0.875rem;
-  margin-top: 0.5rem;
+  text-align: center;
 }
 
 .dashboard-controls {
@@ -532,6 +531,78 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Project Filters */
+.project-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(148, 163, 184, 0.8);
+  margin-right: 0.25rem;
+  /* Custom vertical alignment */
+  height: 44px;
+  display: flex;
+  align-items: center;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 44px;
+  padding: 0 1rem;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 22px;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  box-sizing: border-box;
+  /* Custom vertical alignment */
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.filter-pill:hover {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.filter-pill.active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(6, 182, 212, 0.3) 100%);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+}
+
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 0.4rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.filter-pill.active .filter-count {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .dashboard-loading {

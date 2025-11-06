@@ -12,18 +12,85 @@ const StrategyDashboard: React.FC = () => {
   const [filteredAssets, setFilteredAssets] = useState<AssetData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('maturity');
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(['Hylo']);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+
+  // Define the projects to show in filters (in order)
+  const FILTER_PROJECTS = ['Hylo', 'Huma', 'Perena', 'ONE'];
+
+  // Project name mapping for special cases
+  const getProjectForAsset = (asset: AssetData): string | null => {
+    // Special case: USD*-YYMM tokens belong to Perena
+    const baseAsset = asset.baseAsset || '';
+    const assetName = asset.asset || '';
+    
+    if (baseAsset.includes('USD*') || assetName.includes('USD*')) {
+      return 'Perena';
+    }
+    // Map PST assets to Huma
+    if (baseAsset === 'PST' || assetName.includes('PST')) {
+      return 'Huma';
+    }
+    return asset.projectName;
+  };
+
+  // Get project count for a specific project name
+  const getProjectCount = (projectName: string): number => {
+    if (projectName === 'Others') {
+      // Count assets NOT in main filter projects
+      return assets.filter(asset => {
+        const assetProject = getProjectForAsset(asset);
+        return assetProject && !FILTER_PROJECTS.includes(assetProject);
+      }).length;
+    }
+    return assets.filter(asset => getProjectForAsset(asset) === projectName).length;
+  };
+
+  // Toggle project filter
+  const toggleProjectFilter = (projectName: string) => {
+    setSelectedProjects(prev => {
+      if (prev.includes(projectName)) {
+        // Remove if already selected
+        return prev.filter(p => p !== projectName);
+      } else {
+        // Add if not selected
+        return [...prev, projectName];
+      }
+    });
+  };
+
+  // Clear all filters (select All)
+  const selectAllProjects = () => {
+    setSelectedProjects([]);
+  };
 
   // Fetch assets on mount
   useEffect(() => {
     loadAssets();
   }, []);
 
-  // Filter and sort assets when search term, sort option, or assets change
+  // Filter and sort assets when search term, sort option, selected projects, or assets change
   useEffect(() => {
     let filtered = [...assets];
+
+    // Apply project filter (multi-select)
+    if (selectedProjects.length > 0) {
+      filtered = filtered.filter(asset => {
+        const assetProject = getProjectForAsset(asset);
+        
+        if (selectedProjects.includes('Others')) {
+          // If "Others" is selected, include assets NOT in main projects
+          if (assetProject && !FILTER_PROJECTS.includes(assetProject)) {
+            return true;
+          }
+        }
+        
+        // Check if asset's project is in selected projects
+        return assetProject && selectedProjects.includes(assetProject);
+      });
+    }
 
     // Apply search filter
     if (searchTerm) {
@@ -37,7 +104,7 @@ const StrategyDashboard: React.FC = () => {
     filtered = sortAssets(filtered, sortBy);
 
     setFilteredAssets(filtered);
-  }, [assets, searchTerm, sortBy]);
+  }, [assets, searchTerm, sortBy, selectedProjects]);
 
   const loadAssets = async () => {
     setIsLoading(true);
@@ -137,12 +204,13 @@ const StrategyDashboard: React.FC = () => {
         <div className="dashboard-title-section">
           <h1 className="dashboard-title">YT's Strategy/Risk Dashboard</h1>
           <p className="dashboard-subtitle">Monitor leveraged yield positions</p>
-        </div>          {lastUpdated && (
-            <div className="dashboard-updated">
-              Last updated: {getRelativeTime(lastUpdated)}
-            </div>
-          )}
         </div>
+        {lastUpdated && (
+          <div className="dashboard-updated">
+            Last updated: {getRelativeTime(lastUpdated)}
+          </div>
+        )}
+      </div>
 
         {/* Controls */}
         <div className="dashboard-controls">
@@ -182,6 +250,38 @@ const StrategyDashboard: React.FC = () => {
             title="Refresh data"
           >
             <RefreshCw size={18} className={isLoading ? 'refresh-icon-spinning' : ''} />
+          </button>
+        </div>
+
+        {/* Project Filters */}
+        <div className="project-filters">
+          <span className="filter-label">Projects:</span>
+          <button
+            className={`filter-pill ${selectedProjects.length === 0 ? 'active' : ''}`}
+            onClick={selectAllProjects}
+          >
+            All <span className="filter-count">{assets.length}</span>
+          </button>
+          {FILTER_PROJECTS.map(projectName => {
+            const count = getProjectCount(projectName);
+            const isActive = selectedProjects.includes(projectName);
+            
+            return (
+              <button
+                key={projectName}
+                className={`filter-pill ${isActive ? 'active' : ''}`}
+                onClick={() => toggleProjectFilter(projectName)}
+              >
+                {projectName} <span className="filter-count">{count}</span>
+              </button>
+            );
+          })}
+          {/* Others button */}
+          <button
+            className={`filter-pill ${selectedProjects.includes('Others') ? 'active' : ''}`}
+            onClick={() => toggleProjectFilter('Others')}
+          >
+            Others <span className="filter-count">{getProjectCount('Others')}</span>
           </button>
         </div>
 

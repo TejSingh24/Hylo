@@ -746,7 +746,13 @@ export async function scrapeAllAssets() {
                   // Extract project name from filename
                   const urlParts = imageUrl.split('/');
                   const filename = urlParts[urlParts.length - 1];
-                  const projectName = filename.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, '');
+                  let projectName = filename.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, '');
+                  
+                  // Remove URL encoding and suffixes like %20BG, _BG, etc.
+                  projectName = decodeURIComponent(projectName);
+                  projectName = projectName.replace(/(%20BG|_BG|\s+BG)$/i, '');
+                  projectName = projectName.trim();
+                  
                   result.projectName = projectName;
                 }
               }

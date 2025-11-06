@@ -374,7 +374,7 @@ function YieldCalculator() {
         <div className="bg-circle-1"></div>
         <div className="bg-circle-2"></div>
       </div>
-      <div className="relative w-full max-w-7xl mx-auto px-4">
+      <div className="relative w-full max-w-7xl mx-auto px-4" style={{paddingBottom:'4rem', minHeight: '100vh'}}>
         <div className="grid lg:grid-cols-2 gap-12 items-start">
           <div className="space-y-16 max-w-2xl">
             {/* Header Card */}

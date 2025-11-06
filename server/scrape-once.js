@@ -90,6 +90,11 @@ async function main() {
         ratexBoost: newAsset.ratexBoost,
         impliedYield: newAsset.impliedYield,
         
+        // Visual assets from Phase 1 (new fields)
+        projectBackgroundImage: newAsset.projectBackgroundImage ?? null,
+        projectName: newAsset.projectName ?? null,
+        assetSymbolImage: newAsset.assetSymbolImage ?? null,
+        
         // Preserve old detail page data (if exists)
         rangeLower: oldAsset?.rangeLower ?? null,
         rangeUpper: oldAsset?.rangeUpper ?? null,

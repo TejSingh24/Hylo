@@ -931,19 +931,18 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
       
       console.log(`  ✅ ${asset.asset}: Range ${detailData.rangeLower}-${detailData.rangeUpper}%, YT Current ${ytMetrics.ytPriceCurrent}`);
     } else {
-      // Failed after retries - use old Gist data or calculate
+      // Failed after retries - use old Gist data for DETAIL fields only
       console.warn(`  ⚠️ Failed to fetch ${asset.asset}, using fallback data`);
       
       const oldAsset = existingGistData[asset.asset];
       if (oldAsset) {
+        // Use old detail page data (Phase 2 fields only)
         asset.rangeLower = oldAsset.rangeLower;
         asset.rangeUpper = oldAsset.rangeUpper;
         asset.maturity = oldAsset.maturity;
         
-        // Use old project/asset image data if available
-        asset.projectBackgroundImage = oldAsset.projectBackgroundImage || null;
-        asset.projectName = oldAsset.projectName || null;
-        asset.assetSymbolImage = oldAsset.assetSymbolImage || null;
+        // NOTE: DO NOT overwrite Phase 1 fields (projectBackgroundImage, projectName, assetSymbolImage)
+        // Those were just scraped fresh in Phase 1, keep them!
         
         // Recalculate YT metrics with old data
         const ytMetrics = calculateYtMetrics(
@@ -968,7 +967,9 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
           asset.maturesIn = null;
         }
       } else {
-        // New asset with no old data - set all YT metrics to null
+        // New asset with no old data - set Phase 2 fields to null
+        // NOTE: Phase 1 fields (projectBackgroundImage, projectName, assetSymbolImage) 
+        // are already set from Phase 1, so we keep those
         asset.ytPriceCurrent = null;
         asset.ytPriceLower = null;
         asset.ytPriceUpper = null;
@@ -979,9 +980,6 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
         asset.expectedRecoveryYield = null;
         asset.expectedPointsPerDay = null;
         asset.totalExpectedPoints = null;
-        asset.projectBackgroundImage = null;
-        asset.projectName = null;
-        asset.assetSymbolImage = null;
         console.log(`  ℹ️ New asset ${asset.asset} - detail fields will be null until next run`);
       }
     }

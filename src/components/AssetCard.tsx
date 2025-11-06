@@ -161,17 +161,38 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
       {/* Row 2: Expected Recovery & Last Day YT Value */}
       <div className="metrics-row-secondary">
         <div className="metric-box-secondary metric-recovery">
-          <div className="metric-label-small">Expected Recovery Yield</div>
-          <div className="metric-value-secondary">
-            {formatPercent(expectedRecoveryYield)}
-            {expectedRecoveryYield !== null && expectedRecoveryYield > 0 && (
-              <Check className="metric-icon-success" size={18} />
-            )}
+          <div className="recovery-split">
+            <div className="recovery-item">
+              <div className="recovery-sublabel">Exp. Recovery Yield</div>
+              <div className="metric-value-secondary">
+                {formatPercent(expectedRecoveryYield)}
+                {expectedRecoveryYield !== null && expectedRecoveryYield > 0 && (
+                  <Check className="metric-icon-success" size={18} />
+                )}
+              </div>
+            </div>
+            
+            <div className="recovery-divider"></div>
+            
+            <div className="recovery-item">
+              <div className="recovery-sublabel">
+                Daily Decay Rate
+                <div className="points-info-tooltip">
+                  <Info size={10} className="info-icon-tiny" />
+                  <div className="tooltip-content-small centered">
+                    Daily Decay Rate due to time passing asuming same Implied Yield
+                  </div>
+                </div>
+              </div>
+              <div className="metric-value-secondary metric-value-warning">
+                {formatPercent(asset.dailyDecayRate)}
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="metric-box-secondary metric-lastday">
-          <div className="metric-label-small">Last Day YT Value</div>
+          <div className="metric-label-small centered">LAST DAY YT VALUE</div>
           <div className="lastday-split">
             <div className="lastday-item">
               <div className="metric-value-secondary metric-value-danger">
@@ -246,7 +267,7 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
               <div className="points-info-tooltip">
                 <Info size={12} className="info-icon-small" />
                 <div className="tooltip-content-small">
-                  Expected Total Points calculation uses ${depositAmount} deposit and can change with asset price fluctuations
+                  Can change with asset price fluctuations
                 </div>
               </div>
             </div>

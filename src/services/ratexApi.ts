@@ -166,9 +166,29 @@ export async function triggerWorkflowRefresh(): Promise<boolean> {
 
 /**
  * Check data age and trigger refresh if needed (>10 minutes old)
+ * Uses sessionStorage to prevent multiple triggers in the same session
  */
 export async function checkAndRefreshIfStale(): Promise<void> {
   try {
+    // Check if we already triggered a refresh recently (within 10 minutes)
+    let lastTriggered: string | null = null;
+    try {
+      lastTriggered = sessionStorage.getItem('ratex_last_trigger');
+    } catch (storageError) {
+      console.log('⚠️ sessionStorage unavailable, will check data age only');
+    }
+    
+    const now = Date.now();
+    
+    if (lastTriggered) {
+      const minutesSinceLastTrigger = Math.floor((now - parseInt(lastTriggered)) / 60000);
+      if (minutesSinceLastTrigger < 10) {
+        console.log(`⏭️ Refresh already triggered ${minutesSinceLastTrigger} mins ago, skipping`);
+        return;
+      }
+    }
+
+    // Check data age
     const lastUpdated = await getLastUpdated();
     
     if (lastUpdated === 'Unknown') {
@@ -176,16 +196,25 @@ export async function checkAndRefreshIfStale(): Promise<void> {
       return;
     }
 
-    const now = new Date();
     const updated = new Date(lastUpdated);
-    const ageMs = now.getTime() - updated.getTime();
+    const ageMs = now - updated.getTime();
     const ageMinutes = Math.floor(ageMs / 60000);
 
     console.log(`📊 Data age: ${ageMinutes} minutes`);
 
     if (ageMinutes > 10) {
       console.log(`🔄 Data is stale (${ageMinutes} mins old), triggering refresh...`);
-      await triggerWorkflowRefresh();
+      const triggered = await triggerWorkflowRefresh();
+      
+      // Store trigger timestamp only if successful and sessionStorage is available
+      if (triggered) {
+        try {
+          sessionStorage.setItem('ratex_last_trigger', now.toString());
+          console.log('✅ Trigger timestamp saved to sessionStorage');
+        } catch (storageError) {
+          console.log('⚠️ Could not save to sessionStorage, but trigger was successful');
+        }
+      }
     } else {
       console.log(`✅ Data is fresh (${ageMinutes} mins old), no refresh needed`);
     }

@@ -524,6 +524,38 @@
   animation: spin 1s linear infinite;
 }
 
+.info-button {
+  height: 44px;
+  padding: 0 1.25rem;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 10px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  vertical-align: middle;
+}
+
+.info-button:hover {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.3) 0%, rgba(139, 92, 246, 0.3) 100%);
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+}
+
+.info-button:active {
+  transform: scale(0.98);
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -910,6 +942,10 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+.metric-label-small.centered {
+  text-align: center;
+}
+
 .metric-value-secondary {
   font-size: 1.1rem;
   font-weight: 700;
@@ -947,6 +983,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 60px;
 }
 
 .lastday-item .metric-value-secondary {
@@ -971,6 +1008,55 @@
   letter-spacing: 0.02em;
   line-height: 1.2;
   text-align: center;
+  height: 20px;
+}
+
+/* Recovery Split View - Reuses lastday structure */
+.recovery-split {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.recovery-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+}
+
+.recovery-item .metric-value-secondary {
+  justify-content: center;
+}
+
+.recovery-divider {
+  width: 1px;
+  height: 50px;
+  background: linear-gradient(to bottom, 
+    rgba(148, 163, 184, 0) 0%, 
+    rgba(148, 163, 184, 0.3) 50%, 
+    rgba(148, 163, 184, 0) 100%);
+  flex-shrink: 0;
+  margin-top: 20px;
+}
+
+.recovery-sublabel {
+  font-size: 0.7rem;
+  color: rgba(203, 213, 225, 0.9);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  height: 20px;
 }
 
 /* Analysis Section */
@@ -1149,9 +1235,8 @@
 
 .tooltip-content-small {
   position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(100% + 8px);
+  right: 0;
   background: rgba(15, 23, 42, 0.98);
   border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 6px;
@@ -1159,12 +1244,21 @@
   font-size: 0.7rem;
   color: rgba(203, 213, 225, 0.9);
   white-space: nowrap;
+  text-transform: none;
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;
   pointer-events: none;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
   z-index: 100;
+}
+
+.tooltip-content-small.centered {
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  text-align: center;
 }
 
 .points-info-tooltip:hover .tooltip-content-small {
@@ -1182,6 +1276,181 @@
   letter-spacing: 0.05em;
 }
 
+
+/* =====================================================
+   RESPONSIVE DESIGN
+   ===================================================== */
+
+/* Info Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 16px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  padding-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-emoji {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.modal-title-text {
+  background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: rgba(203, 213, 225, 0.8);
+  font-size: 2.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: -0.25rem;
+  margin-right: -0.5rem;
+}
+
+.modal-close:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #ffffff;
+}
+
+.modal-body {
+  padding: 2rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.info-section {
+  margin-bottom: 1.5rem;
+}
+
+.info-section h3 {
+  color: rgba(139, 92, 246, 0.9);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.75rem 0;
+  text-transform: uppercase;
+}
+
+.info-section ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.info-section li {
+  color: rgba(203, 213, 225, 0.9);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-bottom: 0.5rem;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.info-section li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: rgba(6, 182, 212, 0.7);
+  font-weight: bold;
+}
+
+.info-section li strong {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+.info-tips {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.info-tips p {
+  color: rgba(251, 191, 36, 0.9);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0.5rem 0;
+  padding-left: 0.5rem;
+}
+
+.info-tips strong {
+  font-weight: 600;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
 
 /* =====================================================
    RESPONSIVE DESIGN

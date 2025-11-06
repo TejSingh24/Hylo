@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ArrowUpDown, RefreshCw } from 'lucide-react';
+import { Search, ArrowUpDown, RefreshCw, Info } from 'lucide-react';
 import type { AssetData } from '../services/ratexApi';
-import { fetchAllAssets, getLastUpdated } from '../services/ratexApi';
+import { fetchAllAssets, getLastUpdated, checkAndRefreshIfStale } from '../services/ratexApi';
 import AssetCard from '../components/AssetCard';
 import '../components/Dashboard.css';
 
@@ -17,6 +17,8 @@ const StrategyDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [hasCheckedInitialFilter, setHasCheckedInitialFilter] = useState(false);
 
   // Define the projects to show in filters (in order)
   const FILTER_PROJECTS = ['Hylo', 'Huma', 'Perena', 'ONE'];
@@ -112,8 +114,22 @@ const StrategyDashboard: React.FC = () => {
     setError(null);
     
     try {
+      // Check data age and trigger refresh if stale (>10 mins old)
+      // This happens in background, doesn't block UI
+      await checkAndRefreshIfStale();
+      
       const data = await fetchAllAssets();
       setAssets(data);
+      
+      // Only on initial load: If default Hylo filter has 0 assets, show all instead
+      if (!hasCheckedInitialFilter && selectedProjects.length === 1 && selectedProjects[0] === 'Hylo') {
+        const hyloAssets = data.filter(asset => getProjectForAsset(asset) === 'Hylo');
+        if (hyloAssets.length === 0) {
+          console.log('⚠️ No Hylo assets found on initial load, defaulting to All projects');
+          setSelectedProjects([]);
+        }
+        setHasCheckedInitialFilter(true);
+      }
       
       const timestamp = await getLastUpdated();
       setLastUpdated(timestamp);
@@ -243,6 +259,15 @@ const StrategyDashboard: React.FC = () => {
             </select>
           </div>
 
+          {/* Info Button */}
+          <button
+            onClick={() => setShowInfoModal(true)}
+            className="info-button"
+            title="Understanding metrics"
+          >
+            <Info size={18} />
+          </button>
+
           {/* Refresh Button */}
           <button
             onClick={loadAssets}
@@ -329,6 +354,81 @@ const StrategyDashboard: React.FC = () => {
             {filteredAssets.map((asset) => (
               <AssetCard key={asset.asset} asset={asset} depositAmount={depositAmount} />
             ))}
+          </div>
+        )}
+
+        {/* Info Modal */}
+        {showInfoModal && (
+          <div className="modal-overlay" onClick={() => setShowInfoModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>
+                  <span className="modal-emoji">📊</span>
+                  <span className="modal-title-text">Understanding Asset Card Metrics</span>
+                </h2>
+                <button className="modal-close" onClick={() => setShowInfoModal(false)}>
+                  ×
+                </button>
+              </div>
+              <div className="modal-body">
+                <div className="info-section">
+                  <h3>CORE METRICS</h3>
+                  <ul>
+                    <li><strong>Asset Name:</strong> The yield-bearing token (Base Asset)</li>
+                    <li><strong>Maturity Timer:</strong> Time till yield token expires</li>
+                  </ul>
+                </div>
+
+                <div className="info-section">
+                  <h3>PRICE & RANGE</h3>
+                  <ul>
+                    <li><strong>Price Range:</strong> Expected price fluctuation range based on Implied Yield Range</li>
+                  </ul>
+                </div>
+
+                <div className="info-section">
+                  <h3>YIELD & LEVERAGE</h3>
+                  <ul>
+                    <li><strong>Underlying APY:</strong> Annual Percentage Yield at current market conditions, a 7-day Average</li>
+                    <li><strong>Implied Yield:</strong> Market's expected yield based on YT pricing</li>
+                    <li><strong>Leverage:</strong> How much your yield is amplified (e.g., 2x = double the base yield)</li>
+                  </ul>
+                </div>
+
+                <div className="info-section">
+                  <h3>PERFORMANCE METRICS</h3>
+                  <ul>
+                    <li><strong>Expected Recovery Yield:</strong> Percentage Recovery of underlyin asset (Not $ value) possible through Yields</li>
+                    <li><strong>Daily Decay Rate:</strong> Daily percentage decrease in yield value due to time passing, for the same Implied Yield</li>
+                    <li><strong>Upside Potential:</strong> Maximum potential gain possible for today if implied yield increases to upper range (Approx. 0.5-1%)</li>
+                    <li><strong>Downside Risk:</strong> Maximum Potential loss possible for today if implied yield decreases to lower range (Approx. 0.5-1%)</li>
+                  </ul>
+                </div>
+
+                <div className="info-section">
+                  <h3>POINTS TRACKING</h3>
+                  <ul>
+                    <li><strong>Expected Points/Day:</strong> Projected reward points earned daily (scales with your deposit amount)</li>
+                    <li><strong>Total Expected Points:</strong> Total points by maturity date (scales with your deposit amount)</li>
+                    <li><strong>Boost:</strong> Additional multiplier for point earnings (if applicable)</li>
+                  </ul>
+                </div>
+
+                <div className="info-section">
+                  <h3>LAST DAY YT VALUE</h3>
+                  <ul>
+                    <li><strong>Current Implied Yield:</strong> Expected YT value based on current market yield</li>
+                    <li><strong>Yield's Lower Range:</strong> Expected YT value if yield drops to lower bound</li>
+                    <li>Shows percentage of your investment remaining at 1 day from maturity</li>
+                  </ul>
+                </div>
+
+                <div className="info-tips">
+                  <p>💡 <strong>Tip:</strong> All point calculations update based on your "Deposit Amount" setting</p>
+                  <p>💡 <strong>Note:</strong> Data updates every 5 minutes. When someone visits and if last updated &lt;10 minutes - hard refresh (1.5-2 Minutes)</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

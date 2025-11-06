@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart3, Calculator, ArrowRight, TrendingUp, Shield } from 'lucide-react';
+import { checkAndRefreshIfStale } from '../services/ratexApi';
 import '../components/Dashboard.css';
 
 const Home: React.FC = () => {
+  // Check data freshness on mount
+  useEffect(() => {
+    checkAndRefreshIfStale();
+  }, []);
+
   return (
     <div className="home-page">
       <div className="home-container">

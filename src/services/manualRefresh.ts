@@ -1,11 +1,11 @@
 /**
- * Manual refresh functionality for triggering GitHub Actions workflow
+ * Manual refresh functionality for triggering backend workflow
  * 
  * To use this in your frontend:
  * 1. Add a "Refresh Data" button
  * 2. Call triggerRefresh() when clicked
  * 3. User waits ~30-60 seconds while scraper runs
- * 4. Then fetch fresh data from Gist
+ * 4. Then fetch fresh data from backend
  */
 
 const GITHUB_OWNER = 'TejSingh24';
@@ -13,7 +13,7 @@ const GITHUB_REPO = 'Hylo';
 const WORKFLOW_NAME = 'scrape-ratex.yml';
 
 /**
- * Trigger GitHub Actions workflow to refresh data
+ * Trigger backend workflow to refresh data
  * NOTE: This requires a GitHub token with workflow permissions
  * You'll need to add GITHUB_TOKEN to your Vercel environment variables
  */

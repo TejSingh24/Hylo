@@ -1,7 +1,7 @@
-// GitHub Gist URL - Public, no authentication needed
+// Backend data URL - Public, no authentication needed
 const GIST_RAW_URL = 'https://gist.githubusercontent.com/TejSingh24/d3a1db6fc79e168cf5dff8d3a2c11706/raw/ratex-assets.json';
 
-console.log('Fetching RateX data from GitHub Gist'); // Debug log
+console.log('Fetching RateX data from backend'); // Debug log
 
 export interface AssetData {
   asset: string;              // Full name with maturity: "xSOL-2511", "hyloSOL+-2511"
@@ -24,7 +24,7 @@ export interface AssetData {
   projectName: string | null;             // Project name extracted from background image (e.g., "Hylo")
   assetSymbolImage: string | null;        // Asset symbol icon URL (e.g., "https://static.rate-x.io/img/v1/361b53/xSOL.svg")
   
-  // YT Price calculations (calculated in backend, stored in Gist)
+  // YT Price calculations (calculated in backend, stored in cache)
   ytPriceCurrent: number | null;  // YT price using impliedYield
   ytPriceLower: number | null;    // YT price using rangeLower
   ytPriceUpper: number | null;    // YT price using rangeUpper
@@ -34,7 +34,7 @@ export interface AssetData {
   endDayLowerYield: number | null;   // Loss % if 1 day left with lower yield (worst case)
   dailyDecayRate: number | null;   // Daily value loss % due to time passing
   
-  // Yield and Points calculations (calculated in backend, stored in Gist)
+  // Yield and Points calculations (calculated in backend, stored in cache)
   expectedRecoveryYield: number | null;  // Net yield % (gross × 0.995)
   expectedPointsPerDay: number | null;   // Points/day (with $1 deposit)
   totalExpectedPoints: number | null;    // Total points (with $1 deposit)
@@ -47,7 +47,7 @@ export interface GistResponse {
 }
 
 /**
- * Fetch all available assets from Rate-X (via GitHub Gist)
+ * Fetch all available assets from Rate-X (via backend cache)
  */
 export async function fetchAllAssets(): Promise<AssetData[]> {
   try {
@@ -55,20 +55,20 @@ export async function fetchAllAssets(): Promise<AssetData[]> {
     const response = await fetch(`${GIST_RAW_URL}?t=${Date.now()}`);
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch from Gist: ${response.status}`);
+      throw new Error(`Failed to fetch from backend: ${response.status}`);
     }
     
     const result: GistResponse = await response.json();
     
     return result.assets || [];
   } catch (error) {
-    console.error('Error fetching all assets from Gist:', error);
+    console.error('Error fetching all assets from backend:', error);
     throw error;
   }
 }
 
 /**
- * Fetch specific asset data from Rate-X (via GitHub Gist)
+ * Fetch specific asset data from Rate-X (via backend cache)
  */
 export async function fetchAssetData(assetName: string): Promise<AssetData> {
   try {
@@ -111,20 +111,20 @@ export async function refreshCache(): Promise<AssetData[]> {
 }
 
 /**
- * Check if Gist data is available
+ * Check if backend data is available
  */
-export async function checkHealth(): Promise<boolean> {
+export const checkHealth = async (): Promise<boolean> => {
   try {
     const response = await fetch(`${GIST_RAW_URL}?t=${Date.now()}`);
     return response.ok;
   } catch (error) {
-    console.error('Gist health check failed:', error);
+    console.error('Backend health check failed:', error);
     return false;
   }
 }
 
 /**
- * Trigger GitHub Actions workflow to scrape fresh data
+ * Trigger backend workflow to scrape fresh data
  */
 export async function triggerWorkflowRefresh(): Promise<boolean> {
   try {

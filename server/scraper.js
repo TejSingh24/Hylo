@@ -187,7 +187,7 @@ function calculateYtPrice(maturity, yieldRate, lastUpdated) {
  * @param {number} assetBoost - Asset boost multiplier
  * @returns {Object} All YT metrics (prices, upside, downside, decay, end-day, recovery, points)
  */
-function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated, leverage, apy, maturityDays, assetBoost) {
+export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated, leverage, apy, maturityDays, assetBoost) {
   const result = {
     ytPriceCurrent: null,
     ytPriceLower: null,
@@ -294,17 +294,18 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
     }
     
     // Calculate Total Expected Points (with $1 deposit)
-    // Formula: leverage × assetBoost × depositAmount (default $1)
-    if (leverage !== null && leverage !== undefined && assetBoost !== null && assetBoost !== undefined) {
+    // Formula: leverage × assetBoost × depositAmount × maturityDays
+    if (leverage !== null && leverage !== undefined && assetBoost !== null && assetBoost !== undefined && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
       const depositAmount = 1; // Default deposit amount
-      const totalPoints = leverage * assetBoost * depositAmount;
+      const totalPoints = leverage * assetBoost * depositAmount * daysToUse;
       result.totalExpectedPoints = Math.round(totalPoints); // Round to whole number
     }
     
     // Calculate Expected Points Per Day
-    // Use precise days from maturity date, fallback to maturityDays
-    if (result.totalExpectedPoints !== null && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
-      const pointsPerDay = result.totalExpectedPoints / daysToUse;
+    // Formula: leverage × assetBoost × depositAmount
+    if (leverage !== null && leverage !== undefined && assetBoost !== null && assetBoost !== undefined) {
+      const depositAmount = 1; // Default deposit amount
+      const pointsPerDay = leverage * assetBoost * depositAmount;
       result.expectedPointsPerDay = Math.round(pointsPerDay); // Round to whole number
     }
     

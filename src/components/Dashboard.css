@@ -492,6 +492,66 @@
   box-sizing: border-box;
 }
 
+.calculator-page {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.calculator-page-container {
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 2rem 1rem 6rem 1rem;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Calculator Results */
+.result-container {
+  margin-top: 0.75rem;
+}
+
+.result-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border-radius: 1rem;
+  padding: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.result-label {
+  font-size: 0.8rem;
+  color: rgba(203, 213, 225, 0.9);
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+.result-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .dashboard-header {
   margin-bottom: 2rem;
   display: flex;
@@ -1234,6 +1294,11 @@
   transition: color 0.3s ease;
 }
 
+.info-icon-tiny {
+  color: rgba(203, 213, 225, 0.6);
+  transition: color 0.3s ease;
+}
+
 .analysis-info-tooltip:hover .info-icon {
   color: rgba(139, 92, 246, 0.8);
 }
@@ -1438,7 +1503,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10500;
   padding: 1rem;
   animation: fadeIn 0.2s ease;
 }
@@ -1684,18 +1749,20 @@
     max-width: 100% !important;
   }
 
-  /* ===== BADGES - MAKE SMALLER & WRAP ===== */
+  /* ===== BADGES - STACK VERTICALLY ON RIGHT ===== */
   .asset-badges {
-    max-width: 100% !important;
-    overflow: hidden !important;
-    flex-wrap: wrap !important;
+    max-width: fit-content !important;
+    overflow: visible !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
     gap: 0.3rem !important;
+    display: flex !important;
   }
 
   .badge {
     font-size: 0.55rem !important;
     padding: 0.2rem 0.45rem !important;
-    flex-shrink: 1 !important;
+    flex-shrink: 0 !important;
     min-width: 0 !important;
     white-space: nowrap !important;
     gap: 0.25rem !important;
@@ -1739,15 +1806,57 @@
     max-width: 100% !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    line-height: 1.2 !important;
   }
 
   /* ===== METRIC VALUES ===== */
+  .metric-box .metric-label,
+  .metric-label {
+    font-size: 0.55rem !important;
+  }
+
+  .metric-box .metric-value,
+  .metric-value {
+    font-size: 0.9rem !important;
+  }
+
+  .metric-box .metric-value-large,
   .metric-value-large {
-    font-size: 1.1rem !important;
+    font-size: 1rem !important;
+  }
+
+  .metric-box-secondary .metric-value-secondary,
+  .metric-value-secondary {
+    font-size: 0.85rem !important;
   }
 
   .metric-subtext {
     font-size: 0.6rem !important;
+  }
+
+  .metric-label-small {
+    font-size: 0.55rem !important;
+  }
+
+  /* Analysis section metrics */
+  .metric-box-analysis .metric-label-analysis,
+  .metric-label-analysis {
+    font-size: 0.55rem !important;
+  }
+
+  .metric-box-analysis .metric-value-analysis,
+  .metric-value-analysis {
+    font-size: 0.85rem !important;
+  }
+
+  /* Points section metrics */
+  .points-label {
+    font-size: 0.55rem !important;
+  }
+
+  .points-value {
+    font-size: 1rem !important;
   }
 
   /* ===== HEADER ===== */
@@ -2052,6 +2161,70 @@
     word-break: break-word !important;
   }
 
+  /* Info Icons - Resize */
+  .info-icon {
+    width: 11px !important;
+    height: 11px !important;
+  }
+  
+  .info-icon-small {
+    width: 10px !important;
+    height: 10px !important;
+  }
+  
+  .info-icon-tiny {
+    width: 8px !important;
+    height: 8px !important;
+  }
+
+  /* Tooltip Content - Fix Overflow with Fixed Positioning */
+  .tooltip-content {
+    position: fixed !important;
+    font-size: 0.65rem !important;
+    padding: 0.6rem 0.75rem !important;
+    white-space: normal !important;
+    max-width: 280px !important;
+    word-wrap: break-word !important;
+    line-height: 1.4 !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    top: auto !important;
+    bottom: auto !important;
+    z-index: 10500 !important;
+  }
+  
+  .tooltip-content-small {
+    position: fixed !important;
+    font-size: 0.6rem !important;
+    padding: 0.5rem 0.7rem !important;
+    white-space: normal !important;
+    max-width: 260px !important;
+    word-wrap: break-word !important;
+    line-height: 1.4 !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    top: auto !important;
+    bottom: auto !important;
+    z-index: 10500 !important;
+  }
+
+  /* Override all positioning variants to center on mobile */
+  .tooltip-content-small.centered,
+  .tooltip-content-small.right-aligned {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    max-width: 260px !important;
+  }
+
+  /* Allow parent labels to not constrain tooltip */
+  .recovery-sublabel {
+    position: static !important;
+  }
+
   /* Info Modal - Full Screen on Mobile */
   .modal-overlay {
     padding: 0 !important;
@@ -2190,16 +2363,21 @@
     grid-template-columns: 1fr;
   }
 
-  /* ===== BADGES - MEDIUM SIZING ===== */
+  /* ===== BADGES - STACK VERTICALLY ON RIGHT ===== */
   .asset-badges {
-    flex-wrap: wrap !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
     gap: 0.35rem !important;
+    overflow: visible !important;
+    display: flex !important;
+    max-width: fit-content !important;
   }
 
   .badge {
     font-size: 0.6rem !important;
     padding: 0.22rem 0.5rem !important;
     gap: 0.28rem !important;
+    flex-shrink: 0 !important;
   }
 
   .badge-label {
@@ -2223,27 +2401,119 @@
 
   .asset-name {
     font-size: 1.05rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.2 !important;
   }
 
   /* ===== METRIC VALUES ===== */
+  .metric-box .metric-label,
   .metric-label {
-    font-size: 0.65rem !important;
+    font-size: 0.6rem !important;
   }
 
+  .metric-box .metric-value,
   .metric-value {
+    font-size: 0.95rem !important;
+  }
+
+  .metric-box .metric-value-large,
+  .metric-value-large {
     font-size: 1.1rem !important;
   }
 
-  .metric-value-large {
-    font-size: 1.15rem !important;
-  }
-
+  .metric-box-secondary .metric-value-secondary,
   .metric-value-secondary {
     font-size: 1rem !important;
   }
 
   .metric-subtext {
     font-size: 0.65rem !important;
+  }
+
+  .metric-label-small {
+    font-size: 0.6rem !important;
+  }
+
+  /* Analysis section metrics */
+  .metric-box-analysis .metric-label-analysis,
+  .metric-label-analysis {
+    font-size: 0.6rem !important;
+  }
+
+  .metric-box-analysis .metric-value-analysis,
+  .metric-value-analysis {
+    font-size: 0.95rem !important;
+  }
+
+  /* Points section metrics */
+  .points-label {
+    font-size: 0.6rem !important;
+  }
+
+  .points-value {
+    font-size: 1.15rem !important;
+  }
+
+  /* Info Icons - Resize */
+  .info-icon {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  
+  .info-icon-small {
+    width: 11px !important;
+    height: 11px !important;
+  }
+  
+  .info-icon-tiny {
+    width: 9px !important;
+    height: 9px !important;
+  }
+
+  /* Tooltip Content - Fix Overflow with Fixed Positioning */
+  .tooltip-content {
+    position: fixed !important;
+    font-size: 0.7rem !important;
+    padding: 0.65rem 0.8rem !important;
+    white-space: normal !important;
+    max-width: 320px !important;
+    word-wrap: break-word !important;
+    line-height: 1.4 !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    z-index: 10500 !important;
+  }
+  
+  .tooltip-content-small {
+    position: fixed !important;
+    font-size: 0.65rem !important;
+    padding: 0.55rem 0.75rem !important;
+    white-space: normal !important;
+    max-width: 300px !important;
+    word-wrap: break-word !important;
+    line-height: 1.4 !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    z-index: 10500 !important;
+  }
+
+  /* Override all positioning variants to center on tablet */
+  .tooltip-content-small.centered,
+  .tooltip-content-small.right-aligned {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    max-width: 300px !important;
+  }
+
+  /* Allow parent labels to not constrain tooltip */
+  .recovery-sublabel {
+    position: static !important;
   }
 
   /* ===== SPACING ===== */

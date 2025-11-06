@@ -794,35 +794,102 @@ export async function scrapeDetailPage(page, fullAssetName) {
       }
       
       // Extract Project Background Image from card div style attribute
-      // Looking for: style="background-image: url("https://static.rate-x.io/img/v1/1c9857/Hylo.svg");"
-      const cardDivs = document.querySelectorAll('div[style*="background-image"]');
-      for (const div of cardDivs) {
+      // Looking for divs with background-image in inline style
+      // Pattern: style="...background-image: url("https://static.rate-x.io/img/v1/1c9857/Hylo.svg")..."
+      const allDivs = document.querySelectorAll('div[style]');
+      let bgImageCount = 0;
+      for (const div of allDivs) {
         const styleAttr = div.getAttribute('style');
-        const bgImageMatch = styleAttr.match(/background-image:\s*url\s*\(\s*["']?(https:\/\/static\.rate-x\.io\/[^"')]+)["']?\s*\)/i);
+        if (!styleAttr) continue;
+        
+        // Try to match both quoted and unquoted URLs, with or without https://
+        const bgImageMatch = styleAttr.match(/background-image:\s*url\s*\(\s*["']?((?:https?:)?\/\/static\.rate-x\.io\/[^"')]+)["']?\s*\)/i);
         if (bgImageMatch) {
-          result.projectBackgroundImage = bgImageMatch[1];
+          bgImageCount++;
+          let imageUrl = bgImageMatch[1];
           
-          // Extract project name from the URL filename
-          // URL format: https://static.rate-x.io/img/v1/1c9857/Hylo.svg
-          const urlParts = bgImageMatch[1].split('/');
-          const filename = urlParts[urlParts.length - 1]; // "Hylo.svg"
-          const projectName = filename.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, ''); // "Hylo"
-          result.projectName = projectName;
+          // Ensure URL has https: protocol
+          if (imageUrl.startsWith('//')) {
+            imageUrl = 'https:' + imageUrl;
+          }
           
-          break; // Found it, no need to check more divs
+          // Only accept if it looks like a project logo (not logo_white.svg)
+          if (!imageUrl.includes('logo_white.svg') && !imageUrl.includes('logo.svg')) {
+            result.projectBackgroundImage = imageUrl;
+            
+            // Extract project name from the URL filename
+            // URL format: https://static.rate-x.io/img/v1/1c9857/Hylo.svg
+            const urlParts = imageUrl.split('/');
+            const filename = urlParts[urlParts.length - 1]; // "Hylo.svg"
+            const projectName = filename.replace(/\.(svg|png|jpg|jpeg|gif|webp)$/i, ''); // "Hylo"
+            result.projectName = projectName;
+            
+            console.log(`      [DEBUG] Found project background: ${imageUrl} → Project: ${projectName}`);
+            break; // Found it, no need to check more divs
+          }
         }
+      }
+      if (!result.projectBackgroundImage) {
+        console.log(`      [DEBUG] No project background found (checked ${bgImageCount} background-image divs)`);
       }
       
       // Extract Asset Symbol Image from <img> tag
-      // Looking for: <img src="https://static.rate-x.io/img/v1/361b53/xSOL.svg" alt="xSOL-2511" width="24" height="24">
-      const imgTags = document.querySelectorAll('img[src*="static.rate-x.io"]');
+      // Looking for: <img src="https://static.rate-x.io/img/v1/361b53/xSOL.svg" alt="xSOL-2511">
+      // Need to filter out Rate-X logo and only get asset-specific images
+      const imgTags = document.querySelectorAll('img[src]');
+      let imageCount = 0;
       for (const img of imgTags) {
-        const src = img.getAttribute('src');
-        // Match URLs that contain the asset symbol
-        if (src && src.includes('static.rate-x.io/img/')) {
-          result.assetSymbolImage = src;
-          break; // Take the first match
+        let src = img.getAttribute('src');
+        if (!src) continue;
+        
+        imageCount++;
+        
+        // Ensure URL has https: protocol
+        if (src.startsWith('//')) {
+          src = 'https:' + src;
         }
+        
+        // Only accept images from static.rate-x.io that are NOT logos
+        if (src.includes('static.rate-x.io/img/') && 
+            !src.includes('logo_white.svg') && 
+            !src.includes('logo.svg') &&
+            !src.includes('RateX')) {
+          
+          // Additional validation: check if alt attribute contains asset-like pattern (e.g., "xSOL-2511")
+          const alt = img.getAttribute('alt');
+          if (alt && alt.match(/[A-Za-z0-9*+\-]+-\d{4}/)) {
+            result.assetSymbolImage = src;
+            console.log(`      [DEBUG] Found asset symbol: ${src} (alt="${alt}")`);
+            break;
+          }
+        }
+      }
+      
+      // Fallback: if no image with alt found, try to find any non-logo asset image
+      if (!result.assetSymbolImage) {
+        console.log(`      [DEBUG] No asset symbol with alt found, trying fallback...`);
+        for (const img of imgTags) {
+          let src = img.getAttribute('src');
+          if (!src) continue;
+          
+          if (src.startsWith('//')) {
+            src = 'https:' + src;
+          }
+          
+          if (src.includes('static.rate-x.io/img/') && 
+              !src.includes('logo_white.svg') && 
+              !src.includes('logo.svg') &&
+              !src.includes('RateX') &&
+              src.match(/\/[A-Za-z0-9*+]+\.svg$/)) { // Ends with AssetName.svg
+            result.assetSymbolImage = src;
+            console.log(`      [DEBUG] Found via fallback: ${src}`);
+            break;
+          }
+        }
+      }
+      
+      if (!result.assetSymbolImage) {
+        console.log(`      [DEBUG] No asset symbol found (checked ${imageCount} images)`);
       }
       
       return result;

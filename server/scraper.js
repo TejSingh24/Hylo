@@ -194,7 +194,8 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
     ytPriceUpper: null,
     upsidePotential: null,
     downsideRisk: null,
-    endDayMinimumPct: null,
+    endDayCurrentYield: null,
+    endDayLowerYield: null,
     dailyDecayRate: null,
     expectedRecoveryYield: null,
     expectedPointsPerDay: null,
@@ -216,7 +217,8 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
         ytPriceUpper: 0,
         upsidePotential: 0,
         downsideRisk: 0,
-        endDayMinimumPct: 0,
+        endDayCurrentYield: 0,
+        endDayLowerYield: 0,
         dailyDecayRate: 0,
         expectedRecoveryYield: 0,
         expectedPointsPerDay: 0,
@@ -245,7 +247,8 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
     // Only 1 day left edge case
     if (currentT <= 1/365) {
       result.dailyDecayRate = 100;
-      result.endDayMinimumPct = 0;
+      result.endDayCurrentYield = 0;
+      result.endDayLowerYield = 0;
       return result;
     }
     
@@ -259,13 +262,23 @@ function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, last
       result.dailyDecayRate = formatPercentage(decay);
     }
     
-    // End-day minimum (worst case: 1 day left + lower yield)
+    // End-day scenarios: 1 day left with different yield scenarios
+    const T_oneDay = 1 / 365;
+    
+    // Scenario 1: 1 day left with CURRENT implied yield
+    if (impliedYield !== null && impliedYield !== undefined && result.ytPriceCurrent) {
+      const r_current = impliedYield / 100;
+      const ytEndCurrentYield = 1 - Math.pow(1 + r_current, -T_oneDay);
+      const lossCurrentYield = ((result.ytPriceCurrent - ytEndCurrentYield) / result.ytPriceCurrent) * 100;
+      result.endDayCurrentYield = formatPercentage(lossCurrentYield);
+    }
+    
+    // Scenario 2: 1 day left with LOWER range yield (worst case)
     if (rangeLower !== null && rangeLower !== undefined && result.ytPriceCurrent) {
-      const T_oneDay = 1 / 365;
       const r_lower = rangeLower / 100;
-      const ytEndWorstCase = 1 - Math.pow(1 + r_lower, -T_oneDay);
-      const endDayLoss = ((result.ytPriceCurrent - ytEndWorstCase) / result.ytPriceCurrent) * 100;
-      result.endDayMinimumPct = formatPercentage(endDayLoss);
+      const ytEndLowerYield = 1 - Math.pow(1 + r_lower, -T_oneDay);
+      const lossLowerYield = ((result.ytPriceCurrent - ytEndLowerYield) / result.ytPriceCurrent) * 100;
+      result.endDayLowerYield = formatPercentage(lossLowerYield);
     }
     
     // Calculate Expected Recovery Yield (Net Yield %)

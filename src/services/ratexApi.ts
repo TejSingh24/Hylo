@@ -30,7 +30,8 @@ export interface AssetData {
   ytPriceUpper: number | null;    // YT price using rangeUpper
   upsidePotential: number | null; // Percentage upside (ytUpper vs ytCurrent)
   downsideRisk: number | null;    // Percentage downside (ytCurrent vs ytLower)
-  endDayMinimumPct: number | null; // Max loss % if yield drops + 1 day left
+  endDayCurrentYield: number | null; // Loss % if 1 day left with current yield
+  endDayLowerYield: number | null;   // Loss % if 1 day left with lower yield (worst case)
   dailyDecayRate: number | null;   // Daily value loss % due to time passing
   
   // Yield and Points calculations (calculated in backend, stored in Gist)

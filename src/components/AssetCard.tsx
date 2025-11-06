@@ -7,6 +7,7 @@ import './Dashboard.css';
 
 interface AssetCardProps {
   asset: AssetData;
+  depositAmount?: number;
 }
 
 // Helper to format large numbers (K, M, B)
@@ -36,7 +37,7 @@ const getAssetIconLetter = (assetName: string): string => {
   return assetName.charAt(0).toUpperCase();
 };
 
-const AssetCard: React.FC<AssetCardProps> = ({ asset }) => {
+const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
   // Calculate Expected Recovery Yield (net yield = gross × 0.995)
   const calculateExpectedRecoveryYield = (): number | null => {
     if (asset.expectedRecoveryYield !== null) {
@@ -233,7 +234,7 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset }) => {
           <div className="points-metric">
             <div className="points-label">EXPECTED POINTS/DAY</div>
             <div className="points-value">
-              {formatLargeNumber(asset.expectedPointsPerDay)}
+              {formatLargeNumber((asset.expectedPointsPerDay || 0) * depositAmount)}
             </div>
           </div>
 
@@ -245,12 +246,12 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset }) => {
               <div className="points-info-tooltip">
                 <Info size={12} className="info-icon-small" />
                 <div className="tooltip-content-small">
-                  Expected Total Points calculation uses $1 deposit and can change with asset price fluctuations
+                  Expected Total Points calculation uses ${depositAmount} deposit and can change with asset price fluctuations
                 </div>
               </div>
             </div>
             <div className="points-value">
-              {formatLargeNumber(asset.totalExpectedPoints)}
+              {formatLargeNumber((asset.totalExpectedPoints || 0) * depositAmount)}
             </div>
           </div>
         </div>

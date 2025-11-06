@@ -12,14 +12,11 @@ body {
 
 .min-h-screen {
   min-height: 100vh;
-  width: 100vw;
+  width: 100%;
   display: flex;
-  /* align-items: center; */
   justify-content: center;
-  padding: 7rem 0 4rem 0;
-  position: fixed;
-  top: 0;
-  left: 0;
+  padding: 2rem 1rem 4rem 1rem;
+  position: relative;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -298,4 +295,71 @@ button:hover {
   font-size: 1.2rem;
   font-weight: bold;
   color: #2c3e50;
+}
+
+/* ===== RESPONSIVE STYLES FOR CALCULATOR PAGE ===== */
+
+/* Mobile - Stack vertically, center content */
+@media (max-width: 1023px) {
+  .min-h-screen {
+    padding: 1rem 0.5rem 3rem 0.5rem;
+  }
+
+  /* Stack the grid on mobile/tablet */
+  .grid.lg\\:grid-cols-2 {
+    grid-template-columns: 1fr !important;
+    gap: 2rem !important;
+  }
+
+  /* Center both columns */
+  .space-y-16 {
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  .calculator-container {
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
+/* Small mobile phones */
+@media (max-width: 640px) {
+  .min-h-screen {
+    padding: 0.75rem 0.5rem 2rem 0.5rem;
+  }
+
+  .grid.lg\\:grid-cols-2 {
+    gap: 1.5rem !important;
+  }
+
+  .space-y-16 {
+    gap: 1rem !important;
+  }
+
+  /* Make calculator more compact on small screens */
+  .calculator-card .card-header {
+    padding: 1.5rem !important;
+  }
+
+  .calculator-card .card-content {
+    padding: 1.5rem !important;
+  }
+}
+
+/* Desktop - Ensure proper centering with equal spacing */
+@media (min-width: 1024px) {
+  .min-h-screen {
+    padding: 2rem 2rem 4rem 2rem;
+  }
+
+  /* Ensure both columns have equal space */
+  .grid.lg\\:grid-cols-2 {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 3rem !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+  }
 }

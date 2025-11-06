@@ -129,10 +129,10 @@ function YieldCalculator() {
       const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100
       const netResult = grossResult * 0.995 // Platform takes 0.5% of yield
       
-      // Calculate Expected Total Points: Leverage × Asset Boost × Deposit Amount
+      // Calculate Expected Total Points: Leverage × Asset Boost × Deposit Amount × Maturity Days
       const assetBoost = mode === 'auto' && autoData ? (autoData.assetBoost || 0) : parseFloat(assetBoostManual) || 0;
       const depositAmountNum = parseFloat(depositAmount) || 1;
-      const totalPoints = leverageNum * assetBoost * depositAmountNum;
+      const totalPoints = leverageNum * assetBoost * depositAmountNum * maturityDaysNum;
       
       setYieldReturn({ gross: grossResult, net: netResult, totalPoints })
       setIsCalculating(false)
@@ -314,10 +314,10 @@ function YieldCalculator() {
         const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
         const netResult = grossResult * 0.995;
         
-        // Calculate Expected Total Points
+        // Calculate Expected Total Points: Leverage × Asset Boost × Deposit Amount × Maturity Days
         const assetBoost = assetData.assetBoost || 0;
         const depositAmountNum = parseFloat(depositAmount) || 1;
-        const totalPoints = leverageNum * assetBoost * depositAmountNum;
+        const totalPoints = leverageNum * assetBoost * depositAmountNum * maturityDaysNum;
         
         setYieldReturn({ gross: grossResult, net: netResult, totalPoints });
       } else {
@@ -342,10 +342,10 @@ function YieldCalculator() {
         const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
         const netResult = grossResult * 0.995;
         
-        // Calculate Expected Total Points using editable values
+        // Calculate Expected Total Points: Leverage × Asset Boost × Deposit Amount × Maturity Days
         const assetBoost = parseFloat(editableAssetBoost) || 0;
         const depositAmountNum = parseFloat(depositAmount) || 1;
-        const totalPoints = leverageNum * assetBoost * depositAmountNum;
+        const totalPoints = leverageNum * assetBoost * depositAmountNum * maturityDaysNum;
         
         setYieldReturn({ gross: grossResult, net: netResult, totalPoints });
       }
@@ -368,17 +368,17 @@ function YieldCalculator() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient">
+    <div className="calculator-page">
       {/* Animated background elements */}
       <div className="background-elements">
         <div className="bg-circle-1"></div>
         <div className="bg-circle-2"></div>
       </div>
-      <div className="relative w-full max-w-7xl mx-auto px-4" style={{paddingBottom:'4rem', minHeight: '100vh'}}>
+      <div className="calculator-page-container">
         <div className="grid lg:grid-cols-2 gap-12 items-start">
-          <div className="space-y-16 max-w-2xl">
+          <div className="space-y-16 max-w-2xl mx-auto lg:mx-0">
             {/* Header Card */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl" style={{marginBottom:10}}>
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-xl" style={{marginBottom:10, marginTop: '1rem'}}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg" style={{margin:7}}>
                   <Info className="w-5 h-5 text-white" />
@@ -499,7 +499,7 @@ function YieldCalculator() {
             </div>
           </div>
 
-          <div className="calculator-container">
+          <div className="calculator-container" style={{marginTop: '1rem'}}>
             <div className="calculator-card">
               {/* Header */}
               <div className="card-header">
@@ -1127,7 +1127,7 @@ function YieldCalculator() {
                     )}
 
                     {/* Fetch and Calculate Buttons - Side by Side */}
-                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '-2.5rem', marginBottom: '-1.5rem' }}>
                       {/* Fetch Button */}
                       <button
                         onClick={fetchAllAssetsHandler}
@@ -1203,8 +1203,8 @@ function YieldCalculator() {
                   <div ref={resultRef} className="result-container">
                     <div className="result-card">
                       {/* Exp. Points - Full Width Row */}
-                      <div className="text-center mb-6">
-                        <p className="result-label mb-2 flex items-center justify-center gap-2">
+                      <div className="text-center" style={{marginBottom: '0.5rem'}}>
+                        <p className="result-label flex items-center justify-center gap-2">
                           Exp. Points
                           <div className="relative group">
                             <Info className="w-4 h-4 text-gray-400 cursor-help" />
@@ -1233,18 +1233,18 @@ function YieldCalculator() {
                       </div>
                       
                       {/* Gross Yield and Net Yield - Two Columns */}
-                      <div className="grid grid-cols-2 gap-6">
+                      <div className="grid grid-cols-2" style={{gap: '0.75rem'}}>
                         {/* Gross Yield */}
                         <div className="text-center">
-                          <p className="result-label mb-2">Gross Yield</p>
+                          <p className="result-label">Gross Yield</p>
                           <p className="result-value gross-yield" 
                              style={{
-                               background: 'linear-gradient(to right, #4f46e5, #7c3aed)',
+                               background: 'linear-gradient(to right, #8b5cf6, #a78bfa)',
                                WebkitBackgroundClip: 'text',
                                WebkitTextFillColor: 'transparent',
                                backgroundClip: 'text',
                                fontWeight: '700',
-                               textShadow: '0 0 1px rgba(124, 58, 237, 0.1)',
+                               textShadow: '0 0 1px rgba(139, 92, 246, 0.2)',
                                display: 'inline-block'
                              }}>
                             {yieldReturn.gross.toFixed(2)}%
@@ -1252,7 +1252,7 @@ function YieldCalculator() {
                         </div>
                         {/* Net Yield */}
                         <div className="text-center">
-                          <p className="result-label mb-2 flex items-center justify-center gap-2">
+                          <p className="result-label flex items-center justify-center gap-2">
                             Net Yield
                             <div className="relative group">
                               <Info className="w-4 h-4 text-gray-400 cursor-help" />
@@ -1292,6 +1292,13 @@ function YieldCalculator() {
             {/* Subtle glow effect */}
             <div className="glow-effect"></div>
           </div>
+        </div>
+
+        {/* Footer Info */}
+        <div className="home-footer">
+          <p>
+            Data is automatically updated every 5 minutes. If data is older than 10 minutes when someone visits, a hard refresh (1-2 minutes) updates all metrics to ensure accuracy.
+          </p>
         </div>
       </div>
     </div>

@@ -228,9 +228,10 @@ async function main() {
     ]);
     
     const phase2Data = [...phase2RatexData, ...phase2ExponentData];
+    console.log(`\n✅ Phase 2 scraping complete: ${phase2RatexData.length} RateX + ${phase2ExponentData.length} Exponent = ${phase2Data.length} total assets`);
     
     // ========== Update Gist (Phase 2) ==========
-    console.log('\n� Updating Gist with Phase 2 data...');
+    console.log('\n📤 Updating Gist with Phase 2 data...');
     const phase2Timestamp = {
       lastUpdated: new Date().toISOString(),
       phase: 2,

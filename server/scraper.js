@@ -937,7 +937,7 @@ export async function scrapeDetailPage(page, fullAssetName) {
 export async function scrapeDetailPageWithRetry(page, fullAssetName, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`    Attempt ${attempt}/${maxRetries}...`);
+      console.log(`    [RateX] Attempt ${attempt}/${maxRetries}...`);
       const detailData = await scrapeDetailPage(page, fullAssetName);
       
       // Validate that we got at least some data
@@ -947,10 +947,10 @@ export async function scrapeDetailPageWithRetry(page, fullAssetName, maxRetries 
         throw new Error('No valid data extracted from detail page');
       }
     } catch (error) {
-      console.warn(`    Attempt ${attempt} failed:`, error.message);
+      console.warn(`    [RateX] Attempt ${attempt} failed:`, error.message);
       
       if (attempt < maxRetries) {
-        console.log(`    Retrying in 2 seconds...`);
+        console.log(`    [RateX] Retrying in 2 seconds...`);
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
@@ -1113,9 +1113,12 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
       ];
       
       let detailData = null;
+      let attemptNumber = 1;
       
       for (const url of urlVariations) {
         try {
+          console.log(`    [Exponent] Attempt ${attemptNumber}/${urlVariations.length}...`);
+          attemptNumber++;
           const response = await page.goto(url, {
             waitUntil: 'domcontentloaded',
             timeout: 30000
@@ -1123,7 +1126,8 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
           
           if (response.status() === 404) continue;
           
-          await page.waitForTimeout(2000);
+          // Wait for page to load (increased from 2s to 4s to reduce retries)
+          await page.waitForTimeout(4000);
           
           // Check if we need to click the Details tab
           const needsDetailsClick = await page.evaluate(() => {

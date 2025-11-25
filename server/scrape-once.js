@@ -218,9 +218,13 @@ async function main() {
     const ratexAssets = phase1MergedData.filter(a => a.source === 'ratex');
     const exponentAssets = phase1MergedData.filter(a => a.source === 'exponent');
     
+    // Create separate pages for parallel execution
+    const ratexPage = await browser.newPage();
+    const exponentPage = await browser.newPage();
+    
     const [phase2RatexData, phase2ExponentData] = await Promise.all([
-      scrapeDetailPages(page, ratexAssets, existingGistData),
-      scrapeExponentDetailPages(page, exponentAssets, existingGistData)
+      scrapeDetailPages(ratexPage, ratexAssets, existingGistData),
+      scrapeExponentDetailPages(exponentPage, exponentAssets, existingGistData)
     ]);
     
     const phase2Data = [...phase2RatexData, ...phase2ExponentData];

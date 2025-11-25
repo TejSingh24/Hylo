@@ -1,4 +1,5 @@
-import { scrapeAllAssets, scrapeDetailPages, fetchExistingGistData, calculateMaturesIn, calculateYtMetrics } from './scraper.js';
+import { scrapeAllAssets, scrapeDetailPages, scrapeExponentDetailPages, fetchExistingGistData, calculateMaturesIn, calculateYtMetrics, calculateDaysToMaturity } from './scraper.js';
+import { scrapeAllExponentAssets } from './scraper-exponent.js';
 import puppeteerCore from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import { chmod } from 'fs/promises';
@@ -70,15 +71,70 @@ async function main() {
     
     const page = await browser.newPage();
     
-    // ========== PHASE 1: Scrape Cards Page ==========
-    console.log('\n🚀 PHASE 1: Scraping cards page...');
-    const cardsData = await scrapeAllAssets();
+    // ========== PHASE 1: Scrape Cards Page (PARALLEL) ==========
+    console.log('\n🚀 PHASE 1: Scraping RateX + Exponent in parallel...');
+    
+    // Run both scrapers simultaneously
+    const [ratexData, exponentData] = await Promise.all([
+      scrapeAllAssets(),
+      scrapeAllExponentAssets() // No validation yet
+    ]);
+    
+    console.log(`✅ RateX: ${ratexData.length} assets`);
+    console.log(`✅ Exponent: ${exponentData.length} assets`);
+    
+    // Apply APY and assetBoost validation in-memory (no re-scraping!)
+    console.log('\n🔄 Applying APY and assetBoost validation...');
+    const ratexMap = new Map(
+      ratexData.map(asset => [asset.baseAsset.toLowerCase(), asset])
+    );
+    
+    let apyValidatedCount = 0;
+    let boostValidatedCount = 0;
+    exponentData.forEach(exponentAsset => {
+      const ratexMatch = ratexMap.get(exponentAsset.baseAsset.toLowerCase());
+      const oldAsset = existingGistData[exponentAsset.asset];
+      
+      // Update APY if RateX has it (more reliable)
+      if (ratexMatch && ratexMatch.apy !== null) {
+        console.log(`  ✓ ${exponentAsset.asset}: Overriding APY ${exponentAsset.apy}% → ${ratexMatch.apy}%`);
+        exponentAsset.apy = ratexMatch.apy;
+        apyValidatedCount++;
+      }
+      
+      // Asset Boost Priority: OLD Gist → RateX match → null
+      if (oldAsset && oldAsset.assetBoost !== null) {
+        console.log(`  ✓ ${exponentAsset.asset}: Using OLD gist assetBoost ${oldAsset.assetBoost}x`);
+        exponentAsset.assetBoost = oldAsset.assetBoost;
+        boostValidatedCount++;
+      } else if (ratexMatch && ratexMatch.assetBoost !== null) {
+        console.log(`  ✓ ${exponentAsset.asset}: Using RateX assetBoost ${ratexMatch.assetBoost}x`);
+        exponentAsset.assetBoost = ratexMatch.assetBoost;
+        boostValidatedCount++;
+      }
+      // else: keep null (will be filled in Phase 2)
+      
+      // Maturity Priority: OLD Gist → Asset name calculation
+      if (oldAsset && oldAsset.maturity) {
+        exponentAsset.maturity = oldAsset.maturity;
+        exponentAsset.maturityDays = Math.floor(calculateDaysToMaturity(oldAsset.maturity, new Date().toISOString()));
+        exponentAsset.maturesIn = calculateMaturesIn(oldAsset.maturity);
+      }
+      // else: keep maturity from asset name calculation (done in scraper-exponent.js)
+    });
+    
+    console.log(`✅ APY validation: ${apyValidatedCount}/${exponentData.length} assets updated`);
+    console.log(`✅ assetBoost validation: ${boostValidatedCount}/${exponentData.length} assets updated`);
+    
+    // Merge RateX + Exponent assets
+    const allAssets = [...ratexData, ...exponentData];
+    console.log(`\n📊 Total combined assets: ${allAssets.length} (${ratexData.length} RateX + ${exponentData.length} Exponent)`);
     
     // Merge with existing Gist data (preserve range/maturity)
     console.log('\n🔀 Merging with existing data and calculating YT metrics...');
     const phase1Timestamp = new Date().toISOString(); // Single timestamp for all Phase 1 calculations
     
-    const phase1MergedData = cardsData.map(newAsset => {
+    const phase1MergedData = allAssets.map(newAsset => {
       const oldAsset = existingGistData[newAsset.asset];
       
       // Preserve old detail page data (if exists)
@@ -101,7 +157,8 @@ async function main() {
         newAsset.leverage,
         newAsset.apy,
         newAsset.maturityDays,
-        newAsset.assetBoost
+        newAsset.assetBoost,
+        newAsset.source // Pass source to use correct formula
       );
       
       return {
@@ -114,6 +171,7 @@ async function main() {
         assetBoost: newAsset.assetBoost,
         ratexBoost: newAsset.ratexBoost,
         impliedYield: newAsset.impliedYield,
+        source: newAsset.source, // 'ratex' or 'exponent'
         
         // Visual assets from Phase 1 (new fields)
         projectBackgroundImage: newAsset.projectBackgroundImage ?? null,
@@ -155,8 +213,17 @@ async function main() {
     await updateGist(GIST_ID, phase1GistData, GIST_TOKEN);
     console.log('✅ Phase 1 Gist updated - Frontend can use calculator now!');
     
-    // ========== PHASE 2: Scrape Detail Pages ==========
-    const phase2Data = await scrapeDetailPages(page, phase1MergedData, existingGistData);
+    // ========== PHASE 2: Scrape Detail Pages (Parallel) ==========
+    console.log('\n🚀 Starting Phase 2: Scraping detail pages in parallel...');
+    const ratexAssets = phase1MergedData.filter(a => a.source === 'ratex');
+    const exponentAssets = phase1MergedData.filter(a => a.source === 'exponent');
+    
+    const [phase2RatexData, phase2ExponentData] = await Promise.all([
+      scrapeDetailPages(page, ratexAssets, existingGistData),
+      scrapeExponentDetailPages(page, exponentAssets, existingGistData)
+    ]);
+    
+    const phase2Data = [...phase2RatexData, ...phase2ExponentData];
     
     // ========== Update Gist (Phase 2) ==========
     console.log('\n� Updating Gist with Phase 2 data...');

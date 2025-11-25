@@ -1166,16 +1166,20 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
             
             const result = {
               assetBoost: null,
-              maturity: null
+              maturity: null,
+              debugInfo: null  // For debugging
             };
             
             const baseAssetMatch = assetName.match(/^(YT-[A-Za-z0-9*+\-]+?)-\d{2}[A-Z]{3}\d{2}$/i);
-            if (!baseAssetMatch) return result;
+            if (!baseAssetMatch) {
+              result.debugInfo = `Asset name pattern didn't match: ${assetName}`;
+              return result;
+            }
             
             const baseAsset = baseAssetMatch[1];
             
-            // Extract maturity - two formats
-            const fullMaturityPattern = /This market expires on ([A-Za-z]+\s+\d+,\s+\d{4})\s+at\s+(\d{1,2}:\d{2}\s+[AP]M)\s+(GMT[+-]\d{1,2}:\d{2})/i;
+            // Extract maturity - more flexible pattern to handle spacing variations
+            const fullMaturityPattern = /This market expires on ([A-Za-z]+\s+\d+,\s+\d{4})\s+at\s+(\d{1,2}:\d{2}\s+[AP]M)\s*\.?\s*(GMT[+-]\d{1,2}:\d{2})/i;
             const fullMatch = bodyText.match(fullMaturityPattern);
             
             const simpleMaturityPattern = /This market expires on (\d{1,2})\s+([A-Za-z]{3})\s+(\d{2})/i;
@@ -1258,6 +1262,24 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
             
             return result;
           }, asset.asset);
+          
+          // Debug logging
+          if (detailData && detailData.debugInfo) {
+            console.log(`      ↳ Debug: ${detailData.debugInfo}`);
+          }
+          if (detailData && !detailData.maturity && !detailData.debugInfo) {
+            // Extract a snippet of text around "expires" to see the actual format
+            const bodySnippet = await page.evaluate(() => {
+              const text = document.body.innerText;
+              const idx = text.indexOf('expires');
+              if (idx !== -1) {
+                return text.substring(Math.max(0, idx - 50), Math.min(text.length, idx + 150));
+              }
+              return 'Text "expires" not found';
+            });
+            console.log(`      ↳ Extraction failed: maturity=${detailData.maturity}, assetBoost=${detailData.assetBoost}`);
+            console.log(`      ↳ Text snippet: "${bodySnippet}"`);
+          }
           
           if (detailData && detailData.maturity) {
             // Update asset with Phase 2 data

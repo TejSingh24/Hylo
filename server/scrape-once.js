@@ -69,8 +69,6 @@ async function main() {
       ignoreHTTPSErrors: true,
     });
     
-    const page = await browser.newPage();
-    
     // ========== PHASE 1: Scrape Cards Page (PARALLEL) ==========
     console.log('\n🚀 PHASE 1: Scraping RateX + Exponent in parallel...');
     
@@ -213,19 +211,18 @@ async function main() {
     await updateGist(GIST_ID, phase1GistData, GIST_TOKEN);
     console.log('✅ Phase 1 Gist updated - Frontend can use calculator now!');
     
-    // ========== PHASE 2: Scrape Detail Pages (Parallel) ==========
-    console.log('\n🚀 Starting Phase 2: Scraping detail pages in parallel...');
+    // ========== PHASE 2: Scrape Detail Pages (Sequential) ==========
+    console.log('\n🚀 Starting Phase 2: Scraping detail pages sequentially...');
     const ratexAssets = phase1MergedData.filter(a => a.source === 'ratex');
     const exponentAssets = phase1MergedData.filter(a => a.source === 'exponent');
     
-    // Create separate pages for parallel execution
-    const ratexPage = await browser.newPage();
-    const exponentPage = await browser.newPage();
+    const page = await browser.newPage();
     
-    const [phase2RatexData, phase2ExponentData] = await Promise.all([
-      scrapeDetailPages(ratexPage, ratexAssets, existingGistData),
-      scrapeExponentDetailPages(exponentPage, exponentAssets, existingGistData)
-    ]);
+    console.log('\n📄 Phase 2A: RateX detail pages...');
+    const phase2RatexData = await scrapeDetailPages(page, ratexAssets, existingGistData);
+    
+    console.log('\n📄 Phase 2B: Exponent detail pages...');
+    const phase2ExponentData = await scrapeExponentDetailPages(page, exponentAssets, existingGistData);
     
     const phase2Data = [...phase2RatexData, ...phase2ExponentData];
     console.log(`\n✅ Phase 2 scraping complete: ${phase2RatexData.length} RateX + ${phase2ExponentData.length} Exponent = ${phase2Data.length} total assets`);

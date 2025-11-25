@@ -1119,35 +1119,45 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
         try {
           console.log(`    [Exponent] Attempt ${attemptNumber}/${urlVariations.length}...`);
           attemptNumber++;
+          const startTime = Date.now();
+          
           const response = await page.goto(url, {
             waitUntil: 'domcontentloaded',
             timeout: 30000
           });
           
-          if (response.status() === 404) continue;
+          if (response.status() === 404) {
+            console.log(`      ↳ URL returned 404, trying next variation`);
+            continue;
+          }
           
-          const startTime = Date.now();
           await page.waitForTimeout(2000);
           
           // Always click Details tab
           const detailsElements = await page.$x("//button[contains(text(), 'Details')] | //div[contains(text(), 'Details')]");
-          if (detailsElements.length > 0) {
-            await detailsElements[0].click();
-            
-            // Wait for Details content to load (check every 1s, max 5s)
-            let detailsLoaded = false;
-            for (let i = 0; i < 5; i++) {
-              await page.waitForTimeout(1000);
-              detailsLoaded = await page.evaluate(() => {
-                const bodyText = document.body.innerText || document.body.textContent || '';
-                return bodyText.includes('This market expires on');
-              });
-              if (detailsLoaded) break;
+          if (detailsElements.length === 0) {
+            throw new Error('Details tab button not found');
+          }
+          
+          await detailsElements[0].click();
+          console.log(`      ↳ Clicked Details tab, waiting for content...`);
+          
+          // Wait for Details content to load (check every 1s, max 5s)
+          let detailsLoaded = false;
+          for (let i = 0; i < 5; i++) {
+            await page.waitForTimeout(1000);
+            detailsLoaded = await page.evaluate(() => {
+              const bodyText = document.body.innerText || document.body.textContent || '';
+              return bodyText.includes('This market expires on');
+            });
+            if (detailsLoaded) {
+              console.log(`      ↳ Details content loaded in ${i + 1}s`);
+              break;
             }
-            
-            if (!detailsLoaded) {
-              throw new Error('Details tab content did not load');
-            }
+          }
+          
+          if (!detailsLoaded) {
+            throw new Error('Details tab content did not load after 5s');
           }
           
           // Extract maturity and assetBoost from Details tab

@@ -1126,21 +1126,28 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
           
           if (response.status() === 404) continue;
           
-          // Wait for page to load (increased from 2s to 4s to reduce retries)
-          await page.waitForTimeout(4000);
+          const startTime = Date.now();
+          await page.waitForTimeout(2000);
           
-          // Check if we need to click the Details tab
-          const needsDetailsClick = await page.evaluate(() => {
-            const bodyText = document.body.innerText || document.body.textContent || '';
-            return !bodyText.includes('This market expires on');
-          });
-          
-          if (needsDetailsClick) {
-            const detailsElements = await page.$x("//button[contains(text(), 'Details')] | //div[contains(text(), 'Details')]");
-            if (detailsElements.length > 0) {
-              await detailsElements[0].click();
+          // Always click Details tab
+          const detailsElements = await page.$x("//button[contains(text(), 'Details')] | //div[contains(text(), 'Details')]");
+          if (detailsElements.length > 0) {
+            await detailsElements[0].click();
+            
+            // Wait for Details content to load (check every 1s, max 5s)
+            let detailsLoaded = false;
+            for (let i = 0; i < 5; i++) {
+              await page.waitForTimeout(1000);
+              detailsLoaded = await page.evaluate(() => {
+                const bodyText = document.body.innerText || document.body.textContent || '';
+                return bodyText.includes('This market expires on');
+              });
+              if (detailsLoaded) break;
             }
-            await page.waitForTimeout(3000);
+            
+            if (!detailsLoaded) {
+              throw new Error('Details tab content did not load');
+            }
           }
           
           // Extract maturity and assetBoost from Details tab
@@ -1277,7 +1284,8 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
             break;
           }
         } catch (urlError) {
-          console.warn(`  ⚠️ Error with ${url}:`, urlError.message);
+          const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+          console.warn(`  ⚠️ Failed at ${elapsedTime}s - ${urlError.message}`);
           continue;
         }
       }

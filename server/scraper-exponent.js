@@ -231,165 +231,94 @@ export async function scrapeAllExponentAssets() {
     });
     
     console.log('📡 Navigating to Exponent Finance farm page...');
+    const startTime = Date.now();
     await page.goto('https://www.exponent.finance/farm', {
       waitUntil: 'networkidle0', // Wait until no network activity for 500ms
       timeout: 90000 // 90 seconds for cold starts
     });
     
-    // Wait for initial page load
-    console.log('⏳ Waiting for initial content...');
-    await page.waitForTimeout(3000);
+    // Track when each condition is met
+    let leverageTime = null;
+    let impliedYieldTime = null;
+    let skeletonTime = null;
     
-    // Take initial screenshot
-    console.log('📸 Taking screenshot at t=0s (initial load)...');
-    await page.screenshot({ path: `/tmp/exponent-00s-initial-${Date.now()}.png`, fullPage: true });
+    console.log('⏳ Waiting for asset data to appear...');
     
-    // Wait for page to load completely
-    await page.waitForTimeout(2000);    // Interact with the page to trigger calculations - click on first card
-    console.log('🖱️  Interacting with page (clicking on first card to trigger calculations)...');
-    try {
-      // Move mouse around the page area where cards are displayed
-      await page.mouse.move(200, 300);
-      await page.waitForTimeout(500);
-      
-      // Click on the farm area to ensure focus
-      await page.mouse.click(200, 300);
-      await page.waitForTimeout(1000);
-      
-      console.log('  ✅ Page interaction completed');
-    } catch (e) {
-      console.log('  ❌ Page interaction failed:', e.message);
-    }
+    // Monitor conditions continuously
+    const checkInterval = setInterval(async () => {
+      try {
+        const status = await page.evaluate(() => {
+          const bodyText = document.body.innerText;
+          
+          // Check for leverage values
+          const leverageMatches = bodyText.match(/Effective\s+Exposure[^\d∞]*([\d.]+)\s*x/gi) || [];
+          const hasValidLeverage = leverageMatches.length > 0;
+          
+          // Check for implied yield values
+          const impliedMatches = bodyText.match(/Implied\s+APY\s*([\d.]+)\s*%/gi) || [];
+          const hasImpliedYield = impliedMatches.length > 0;
+          
+          // Check if skeleton loaders are gone
+          const skeletons = document.querySelectorAll('.skeleton-gray');
+          const noSkeletons = skeletons.length === 0;
+          
+          return {
+            hasValidLeverage,
+            hasImpliedYield,
+            noSkeletons
+          };
+        });
+        
+        const currentTime = Date.now();
+        const elapsed = ((currentTime - startTime) / 1000).toFixed(1);
+        
+        if (status.hasValidLeverage && !leverageTime) {
+          leverageTime = elapsed;
+          console.log(`  ✅ Leverage values appeared at t=${elapsed}s`);
+        }
+        
+        if (status.hasImpliedYield && !impliedYieldTime) {
+          impliedYieldTime = elapsed;
+          console.log(`  ✅ Implied Yield values appeared at t=${elapsed}s`);
+        }
+        
+        if (status.noSkeletons && !skeletonTime) {
+          skeletonTime = elapsed;
+          console.log(`  ✅ Skeleton loaders cleared at t=${elapsed}s`);
+        }
+      } catch (e) {
+        // Ignore errors during checking
+      }
+    }, 1000);
     
-    // Take screenshot after interaction
-    console.log('📸 Taking screenshot at t=5s (after page interaction)...');
-    await page.screenshot({ path: `/tmp/exponent-05s-after-interaction-${Date.now()}.png`, fullPage: true });
-    
-    // Scroll to load all cards with mouse movement
-    console.log('📜 Scrolling to load all cards with mouse interactions...');
-    for (let i = 0; i < 3; i++) {
-      // Move mouse to simulate real user
-      await page.mouse.move(100 + i * 50, 200 + i * 100);
-      await page.evaluate(() => {
-        window.scrollBy(0, 1500);
-      });
-      await page.waitForTimeout(1000);
-    }
-    
-    // Take screenshot after scrolling
-    console.log('📸 Taking screenshot at t=10s (after scrolling)...');
-    await page.screenshot({ path: `/tmp/exponent-10s-scrolled-${Date.now()}.png`, fullPage: true });
-    
-    // Wait for skeleton loaders to disappear (Implied APY loads dynamically)
-    console.log('⏳ Waiting for skeleton loaders to disappear...');
+    // Wait for all conditions to be met
     try {
       await page.waitForFunction(
         () => {
+          const bodyText = document.body.innerText;
+          const leverageMatches = bodyText.match(/Effective\s+Exposure[^\d∞]*([\d.]+)\s*x/gi) || [];
+          const hasValidLeverage = leverageMatches.length > 0;
+          
           const skeletons = document.querySelectorAll('.skeleton-gray');
-          return skeletons.length === 0;
+          const noSkeletons = skeletons.length === 0;
+          
+          return hasValidLeverage && noSkeletons;
         },
-        { timeout: 10000 }
+        { timeout: 60000, polling: 1000 }
       );
-      console.log('✅ Skeleton loaders gone!');
+      
+      clearInterval(checkInterval);
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ All data loaded in ${totalTime}s`);
     } catch (e) {
-      console.warn('⚠️  Timeout waiting for skeleton loaders, proceeding anyway...');
-    }
-    
-    // Take screenshot after skeleton removal
-    console.log('📸 Taking screenshot at t=20s (after skeleton removal)...');
-    await page.screenshot({ path: `/tmp/exponent-20s-no-skeletons-${Date.now()}.png`, fullPage: true });
-    
-    // Click the "Farm" button for additional interaction
-    console.log('🖱️  Clicking "Farm" button at t=20s for interaction...');
-    try {
-      // Method 1: Try XPath to find button/div/a with "Farm" text
-      const farmElements = await page.$x("//button[contains(text(), 'Farm')] | //div[contains(text(), 'Farm')] | //a[contains(text(), 'Farm')]");
-      
-      if (farmElements.length > 0) {
-        console.log(`  🔍 Found ${farmElements.length} element(s) with "Farm" text using XPath`);
-        
-        // Move mouse to the button for realistic interaction
-        const box = await farmElements[0].boundingBox();
-        if (box) {
-          await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-          await page.waitForTimeout(200);
-        }
-        
-        // Click the Farm button
-        await farmElements[0].click();
-        console.log('  ✅ Clicked Farm button using XPath');
-      } else {
-        // Method 2: Try finding by visible text using evaluate
-        console.log('  ⚠️  No XPath match, trying alternative method...');
-        
-        const clicked = await page.evaluate(() => {
-          // Find all clickable elements
-          const elements = Array.from(document.querySelectorAll('button, div, span, a, [role="button"], [role="tab"]'));
-          const farmElement = elements.find(el => {
-            const text = el.textContent || '';
-            return text.trim().toLowerCase() === 'farm';
-          });
-          if (farmElement) {
-            // Try multiple click methods
-            farmElement.click();
-            farmElement.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-            return true;
-          }
-          return false;
-        });
-        console.log(`  ${clicked ? '✅' : '❌'} Alternative click method ${clicked ? 'succeeded' : 'failed'}`);
-      }
-      
-      // Wait for Farm button click to take effect
-      await page.waitForTimeout(2000);
-      
-      // Take screenshot after Farm button click
-      console.log('📸 Taking screenshot at t=22s (after Farm button click)...');
-      await page.screenshot({ path: `/tmp/exponent-22s-after-farm-click-${Date.now()}.png`, fullPage: true });
-      
-    } catch (e) {
-      console.log('  ❌ Farm button click failed:', e.message);
-    }
-    
-    // Wait and take screenshots every 30 seconds to track value loading
-    console.log('⏳ Waiting and monitoring for values to appear...');
-    for (let i = 1; i <= 3; i++) {
-      const waitTime = 30000; // 30 seconds
-      console.log(`   Waiting ${waitTime/1000}s (check ${i}/3)...`);
-      await page.waitForTimeout(waitTime);
-      
-      // Check current state
-      const impliedApyCount = await page.evaluate(() => {
-        const bodyText = document.body.innerText;
-        const matches = bodyText.match(/Implied\s+APY\s+([\d.]+)%/gi) || [];
-        return matches.filter(m => {
-          const val = parseFloat(m.match(/([\d.]+)%/)?.[1] || '0');
-          return val > 0;
-        }).length;
-      });
-      
-      const leverageCount = await page.evaluate(() => {
-        const bodyText = document.body.innerText;
-        const matches = bodyText.match(/Effective\s+Exposure[\s\S]{0,20}([\d.]+)x/gi) || [];
-        return matches.length;
-      });
-      
-      console.log(`   [t=${20 + i*30}s] Non-zero Implied APY: ${impliedApyCount}, Numeric Leverage: ${leverageCount}`);
-      
-      // Take screenshot
-      await page.screenshot({ path: `/tmp/exponent-${20 + i*30}s-check${i}-${Date.now()}.png`, fullPage: true });
-      
-      // If we have enough data, break early
-      if (impliedApyCount >= 5 && leverageCount >= 5) {
-        console.log('   ✅ Sufficient data detected, proceeding to extraction!');
-        break;
-      }
+      clearInterval(checkInterval);
+      console.warn('⚠️  Timeout waiting for data, proceeding with extraction anyway...');
     }
     
     // Log final RPC stats
-    console.log(`\n📊 RPC Requests: ${rpcResponses.success}/${rpcResponses.total} successful`);
+    console.log(`📊 RPC Requests: ${rpcResponses.success}/${rpcResponses.total} successful`);
     
-    console.log('\n🔍 Extracting asset data...');
+    console.log('🔍 Extracting asset data...');
     
     // Extract all asset data
     const assets = await page.evaluate(() => {

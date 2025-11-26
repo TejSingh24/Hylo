@@ -5,7 +5,7 @@ import { fetchAllAssets, getLastUpdated, checkAndRefreshIfStale } from '../servi
 import AssetCard from '../components/AssetCard';
 import '../components/Dashboard.css';
 
-type SortOption = 'maturity' | 'leverage' | 'points' | 'upside' | 'risk';
+type SortOption = 'maturity' | 'leverage' | 'points' | 'dailyYield' | 'pointsPerDay' | 'risk';
 
 const StrategyDashboard: React.FC = () => {
   const [assets, setAssets] = useState<AssetData[]>([]);
@@ -207,7 +207,7 @@ const StrategyDashboard: React.FC = () => {
           return pointsB - pointsA;
         });
 
-      case 'upside':
+      case 'dailyYield':
         // Sort by daily yield rate (descending - highest first)
         return sorted.sort((a, b) => {
           const yieldA = a.dailyYieldRate ?? 0;
@@ -215,12 +215,25 @@ const StrategyDashboard: React.FC = () => {
           return yieldB - yieldA;
         });
 
-      case 'risk':
-        // Sort by downside risk (ascending - lowest risk first)
+      case 'pointsPerDay':
+        // Sort by expected points per day (descending - highest first)
         return sorted.sort((a, b) => {
-          const riskA = Math.abs(a.downsideRisk ?? 0);
-          const riskB = Math.abs(b.downsideRisk ?? 0);
-          return riskA - riskB;
+          const pointsA = a.expectedPointsPerDay ?? 0;
+          const pointsB = b.expectedPointsPerDay ?? 0;
+          return pointsB - pointsA;
+        });
+
+      case 'risk':
+        // Sort by downside risk (ascending - lowest risk first, N/A last)
+        return sorted.sort((a, b) => {
+          const riskA = a.downsideRisk;
+          const riskB = b.downsideRisk;
+          
+          // Push N/A values to the end
+          if (riskA === null || riskA === undefined) return 1;
+          if (riskB === null || riskB === undefined) return -1;
+          
+          return Math.abs(riskA) - Math.abs(riskB);
         });
 
       default:
@@ -290,9 +303,10 @@ const StrategyDashboard: React.FC = () => {
               className="sort-select"
             >
               <option value="maturity">Sort by: Closest Maturity</option>
-              <option value="leverage">Sort by: Highest Leverage</option>
-              <option value="points">Sort by: Highest Points</option>
-              <option value="upside">Sort by: Highest Upside</option>
+              <option value="points">Sort by: Total Points</option>
+              <option value="pointsPerDay">Sort by: Points/Day</option>
+              <option value="dailyYield">Sort by: Daily Yield</option>
+              <option value="leverage">Sort by: Leverage</option>
               <option value="risk">Sort by: Lowest Risk</option>
             </select>
           </div>

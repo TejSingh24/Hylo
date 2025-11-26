@@ -160,13 +160,33 @@ export async function scrapeAllExponentAssets() {
       timeout: 90000 // 90 seconds for cold starts
     });
     
-    // Wait for content to load
-    console.log('⏳ Waiting for content to load...');
+    // Wait for initial page load
+    console.log('⏳ Waiting for initial content...');
     await page.waitForTimeout(3000);
     
     // Take initial screenshot
-    console.log('📸 Taking screenshot at t=0s...');
+    console.log('📸 Taking screenshot at t=0s (initial load)...');
     await page.screenshot({ path: `/tmp/exponent-00s-initial-${Date.now()}.png`, fullPage: true });
+    
+    // Interact with the page to trigger calculations - click on first card
+    console.log('🖱️  Interacting with page (clicking on first card to trigger calculations)...');
+    try {
+      // Move mouse around the page area where cards are displayed
+      await page.mouse.move(200, 300);
+      await page.waitForTimeout(500);
+      
+      // Click on the farm area to ensure focus
+      await page.mouse.click(200, 300);
+      await page.waitForTimeout(1000);
+      
+      console.log('  ✅ Page interaction completed');
+    } catch (e) {
+      console.log('  ❌ Page interaction failed:', e.message);
+    }
+    
+    // Take screenshot after interaction
+    console.log('📸 Taking screenshot at t=5s (after page interaction)...');
+    await page.screenshot({ path: `/tmp/exponent-05s-after-interaction-${Date.now()}.png`, fullPage: true });
     
     // Scroll to load all cards with mouse movement
     console.log('📜 Scrolling to load all cards with mouse interactions...');
@@ -180,7 +200,7 @@ export async function scrapeAllExponentAssets() {
     }
     
     // Take screenshot after scrolling
-    console.log('📸 Taking screenshot after scrolling...');
+    console.log('📸 Taking screenshot at t=10s (after scrolling)...');
     await page.screenshot({ path: `/tmp/exponent-10s-scrolled-${Date.now()}.png`, fullPage: true });
     
     // Wait for skeleton loaders to disappear (Implied APY loads dynamically)
@@ -199,8 +219,60 @@ export async function scrapeAllExponentAssets() {
     }
     
     // Take screenshot after skeleton removal
-    console.log('📸 Taking screenshot after skeleton removal...');
+    console.log('📸 Taking screenshot at t=20s (after skeleton removal)...');
     await page.screenshot({ path: `/tmp/exponent-20s-no-skeletons-${Date.now()}.png`, fullPage: true });
+    
+    // Click the "Farm" button for additional interaction
+    console.log('🖱️  Clicking "Farm" button at t=20s for interaction...');
+    try {
+      // Method 1: Try XPath to find button/div/a with "Farm" text
+      const farmElements = await page.$x("//button[contains(text(), 'Farm')] | //div[contains(text(), 'Farm')] | //a[contains(text(), 'Farm')]");
+      
+      if (farmElements.length > 0) {
+        console.log(`  🔍 Found ${farmElements.length} element(s) with "Farm" text using XPath`);
+        
+        // Move mouse to the button for realistic interaction
+        const box = await farmElements[0].boundingBox();
+        if (box) {
+          await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+          await page.waitForTimeout(200);
+        }
+        
+        // Click the Farm button
+        await farmElements[0].click();
+        console.log('  ✅ Clicked Farm button using XPath');
+      } else {
+        // Method 2: Try finding by visible text using evaluate
+        console.log('  ⚠️  No XPath match, trying alternative method...');
+        
+        const clicked = await page.evaluate(() => {
+          // Find all clickable elements
+          const elements = Array.from(document.querySelectorAll('button, div, span, a, [role="button"], [role="tab"]'));
+          const farmElement = elements.find(el => {
+            const text = el.textContent || '';
+            return text.trim().toLowerCase() === 'farm';
+          });
+          if (farmElement) {
+            // Try multiple click methods
+            farmElement.click();
+            farmElement.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            return true;
+          }
+          return false;
+        });
+        console.log(`  ${clicked ? '✅' : '❌'} Alternative click method ${clicked ? 'succeeded' : 'failed'}`);
+      }
+      
+      // Wait for Farm button click to take effect
+      await page.waitForTimeout(2000);
+      
+      // Take screenshot after Farm button click
+      console.log('📸 Taking screenshot at t=22s (after Farm button click)...');
+      await page.screenshot({ path: `/tmp/exponent-22s-after-farm-click-${Date.now()}.png`, fullPage: true });
+      
+    } catch (e) {
+      console.log('  ❌ Farm button click failed:', e.message);
+    }
     
     // Wait and take screenshots every 30 seconds to track value loading
     console.log('⏳ Waiting and monitoring for values to appear...');

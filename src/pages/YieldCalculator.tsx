@@ -226,7 +226,7 @@ function YieldCalculator() {
                 // Calculate Expected Total Points
                 const assetBoost = updatedAssetData.assetBoost || 0;
                 const depositAmountNum = parseFloat(depositAmount) || 1;
-                const totalPoints = leverageNum * assetBoost * depositAmountNum;
+                const totalPoints = leverageNum * assetBoost * depositAmountNum * maturityDaysNum;
                 
                 setYieldReturn({ gross: grossResult, net: netResult, totalPoints });
               }
@@ -996,7 +996,13 @@ function YieldCalculator() {
                                 autoFocus
                               />
                             ) : (
-                              <span style={{ marginLeft: '0.25rem' }}>{editableMaturity || autoData.maturityDays} days</span>
+                              <span style={{ marginLeft: '0.25rem' }}>
+                                {editableMaturity 
+                                  ? parseFloat(editableMaturity).toFixed(2) 
+                                  : (autoData.maturityDays !== null && autoData.maturityDays !== undefined 
+                                      ? autoData.maturityDays.toFixed(2) 
+                                      : '0.00')} days
+                              </span>
                             )}
                             <button
                               onClick={() => setIsEditingMaturity(!isEditingMaturity)}

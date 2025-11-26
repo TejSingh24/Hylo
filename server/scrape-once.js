@@ -144,14 +144,20 @@ async function main() {
       // else: keep null (will be filled in Phase 2)
       
       // Maturity Priority: OLD Gist → Asset name calculation
+      let preciseDaysToUse = exponentAsset.maturityDays; // Default to integer
+      
       if (oldAsset && oldAsset.maturity) {
         exponentAsset.maturity = oldAsset.maturity;
-        exponentAsset.maturityDays = Math.floor(calculateDaysToMaturity(oldAsset.maturity, new Date().toISOString()));
+        preciseDaysToUse = calculateDaysToMaturity(oldAsset.maturity, new Date().toISOString());
+        exponentAsset.maturityDays = Math.floor(preciseDaysToUse);
         exponentAsset.maturesIn = calculateMaturesIn(oldAsset.maturity);
+        console.log(`  ✓ ${exponentAsset.asset}: Using old gist maturity, precise days: ${preciseDaysToUse.toFixed(2)}`);
       } else if (exponentAsset.maturity) {
-        // Maturity from asset name - recalculate maturesIn to be current
-        exponentAsset.maturityDays = Math.floor(calculateDaysToMaturity(exponentAsset.maturity, new Date().toISOString()));
+        // Maturity from asset name - recalculate with precise days
+        preciseDaysToUse = calculateDaysToMaturity(exponentAsset.maturity, new Date().toISOString());
+        exponentAsset.maturityDays = Math.floor(preciseDaysToUse);
         exponentAsset.maturesIn = calculateMaturesIn(exponentAsset.maturity);
+        console.log(`  ✓ ${exponentAsset.asset}: Using name-based maturity, precise days: ${preciseDaysToUse.toFixed(2)}`);
       }
       // else: no maturity available (shouldn't happen for Exponent assets)
       
@@ -172,7 +178,7 @@ async function main() {
           phase1Timestamp,
           exponentAsset.leverage,
           exponentAsset.apy,
-          exponentAsset.maturityDays,
+          preciseDaysToUse, // Use precise decimal days
           exponentAsset.assetBoost,
           'exponent' // source
         );
@@ -221,6 +227,12 @@ async function main() {
         const rangeUpper = oldAsset?.rangeUpper ?? null;
         const maturity = oldAsset?.maturity ?? null;
         
+        // Calculate precise daysToUse from old gist maturity
+        let preciseDaysToUse = newAsset.maturityDays; // Default to integer
+        if (maturity) {
+          preciseDaysToUse = calculateDaysToMaturity(maturity, phase1Timestamp);
+        }
+        
         ytMetrics = calculateYtMetrics(
           maturity,
           newAsset.impliedYield,
@@ -229,7 +241,7 @@ async function main() {
           phase1Timestamp,
           newAsset.leverage,
           newAsset.apy,
-          newAsset.maturityDays,
+          preciseDaysToUse, // Use precise decimal days
           newAsset.assetBoost,
           'ratex'
         );

@@ -1133,6 +1133,19 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
           
           await page.waitForTimeout(2000);
           
+          // Take screenshot of Overview tab (initial load) for hyloSOL
+          if (asset.asset.includes('hyloSOL')) {
+            console.log(`      ↳ Taking screenshot of Overview tab for ${asset.asset}...`);
+            try {
+              await page.screenshot({ 
+                path: `/tmp/exponent-detail-${asset.asset}-overview-${Date.now()}.png`, 
+                fullPage: true 
+              });
+            } catch (screenshotError) {
+              console.warn('      ⚠️  Screenshot failed:', screenshotError.message);
+            }
+          }
+          
           // Always click Details tab
           const detailsElements = await page.$x("//button[contains(text(), 'Details')] | //div[contains(text(), 'Details')]");
           if (detailsElements.length === 0) {
@@ -1313,6 +1326,73 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
             Object.assign(asset, ytMetrics);
             
             console.log(`  ✅ ${asset.asset}: Maturity ${asset.maturity}, Boost ${asset.assetBoost}x, YT Current ${ytMetrics.ytPriceCurrent}`);
+            
+            // For hyloSOL: Click Overview tab and check for Effective Exposure
+            if (asset.asset.includes('hyloSOL')) {
+              console.log(`      ↳ [hyloSOL Debug] Clicking Overview tab to check Effective Exposure...`);
+              try {
+                // Click Overview tab
+                const overviewElements = await page.$x("//button[contains(text(), 'Overview')] | //div[contains(text(), 'Overview')]");
+                if (overviewElements.length > 0) {
+                  await overviewElements[0].click();
+                  console.log(`      ↳ Clicked Overview tab`);
+                  
+                  // Take screenshot right after clicking Overview
+                  await page.waitForTimeout(1000);
+                  console.log(`      ↳ Taking screenshot after Overview click...`);
+                  await page.screenshot({ 
+                    path: `/tmp/exponent-detail-${asset.asset}-overview-clicked-${Date.now()}.png`, 
+                    fullPage: true 
+                  });
+                  
+                  // Wait for Effective Exposure to appear
+                  console.log(`      ↳ Waiting for Effective Exposure to load...`);
+                  try {
+                    await page.waitForFunction(
+                      () => {
+                        const bodyText = document.body.innerText || document.body.textContent || '';
+                        const exposureMatch = bodyText.match(/Effective\s+Exposure\s+([\d.]+)x/i);
+                        return exposureMatch !== null;
+                      },
+                      { timeout: 10000 }
+                    );
+                    console.log(`      ↳ ✅ Effective Exposure loaded on Overview tab`);
+                    
+                    // Take screenshot after Exposure appears
+                    await page.screenshot({ 
+                      path: `/tmp/exponent-detail-${asset.asset}-overview-exposure-loaded-${Date.now()}.png`, 
+                      fullPage: true 
+                    });
+                    
+                    // Extract the actual values
+                    const overviewData = await page.evaluate(() => {
+                      const bodyText = document.body.innerText || document.body.textContent || '';
+                      const exposureMatch = bodyText.match(/Effective\s+Exposure\s+([\d.]+)x/i);
+                      const impliedMatch = bodyText.match(/Implied\s+APY\s+([\d.]+)%/i);
+                      return {
+                        effectiveExposure: exposureMatch ? exposureMatch[1] : null,
+                        impliedAPY: impliedMatch ? impliedMatch[1] : null
+                      };
+                    });
+                    console.log(`      ↳ Overview values: Exposure=${overviewData.effectiveExposure}x, Implied APY=${overviewData.impliedAPY}%`);
+                    
+                  } catch (waitError) {
+                    console.log(`      ↳ ⚠️  Effective Exposure not found after 10s timeout`);
+                    
+                    // Take screenshot of timeout state
+                    await page.screenshot({ 
+                      path: `/tmp/exponent-detail-${asset.asset}-overview-timeout-${Date.now()}.png`, 
+                      fullPage: true 
+                    });
+                  }
+                } else {
+                  console.log(`      ↳ ⚠️  Overview tab button not found`);
+                }
+              } catch (overviewError) {
+                console.log(`      ↳ ❌ Overview tab interaction failed: ${overviewError.message}`);
+              }
+            }
+            
             break;
           }
         } catch (urlError) {

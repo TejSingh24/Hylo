@@ -156,7 +156,7 @@ export async function scrapeAllExponentAssets() {
     
     console.log('📡 Navigating to Exponent Finance farm page...');
     await page.goto('https://www.exponent.finance/farm', {
-      waitUntil: 'domcontentloaded',
+      waitUntil: 'networkidle0', // Wait until no network activity for 500ms
       timeout: 90000 // 90 seconds for cold starts
     });
     

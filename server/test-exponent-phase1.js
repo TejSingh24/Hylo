@@ -33,7 +33,7 @@ async function testExponentPhase1() {
     
     const assets = await scrapeExponentPhase1({
       executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-      headless: false, // Set to true for headless mode
+      headless: true, // Testing in headless mode to match CI environment
       ratexAssets: ratexAssets
     });
     

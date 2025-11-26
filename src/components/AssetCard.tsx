@@ -109,7 +109,11 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
             )}
           </div>
           <div className="asset-name-section">
-            <h3 className="asset-name">{asset.asset}</h3>
+            <h3 className="asset-name">
+              {asset.source === 'exponent' && asset.asset.startsWith('YT-') 
+                ? asset.asset.substring(3) 
+                : asset.asset}
+            </h3>
             <Timer 
               maturesIn={asset.maturesIn}
               maturityDate={asset.maturity}

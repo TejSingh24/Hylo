@@ -130,7 +130,14 @@ export async function scrapeAllExponentAssets() {
     }
     
     browser = await puppeteer.launch({
-      args: [...chromium.args, '--single-process', '--no-zygote'],
+      args: [
+        ...chromium.args,
+        '--single-process',
+        '--no-zygote',
+        '--disable-blink-features=AutomationControlled', // Hide automation
+        '--disable-dev-shm-usage',
+        '--no-sandbox'
+      ],
       defaultViewport: chromium.defaultViewport,
       executablePath: executablePath,
       headless: chromium.headless,
@@ -138,6 +145,14 @@ export async function scrapeAllExponentAssets() {
     });
     
     const page = await browser.newPage();
+    
+    // Set realistic user agent
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    // Hide webdriver property
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
     
     console.log('📡 Navigating to Exponent Finance farm page...');
     await page.goto('https://www.exponent.finance/farm', {
@@ -149,14 +164,24 @@ export async function scrapeAllExponentAssets() {
     console.log('⏳ Waiting for content to load...');
     await page.waitForTimeout(3000);
     
-    // Scroll to load all cards
-    console.log('📜 Scrolling to load all cards...');
+    // Take initial screenshot
+    console.log('📸 Taking screenshot at t=0s...');
+    await page.screenshot({ path: `/tmp/exponent-00s-initial-${Date.now()}.png`, fullPage: true });
+    
+    // Scroll to load all cards with mouse movement
+    console.log('📜 Scrolling to load all cards with mouse interactions...');
     for (let i = 0; i < 3; i++) {
+      // Move mouse to simulate real user
+      await page.mouse.move(100 + i * 50, 200 + i * 100);
       await page.evaluate(() => {
         window.scrollBy(0, 1500);
       });
       await page.waitForTimeout(1000);
     }
+    
+    // Take screenshot after scrolling
+    console.log('📸 Taking screenshot after scrolling...');
+    await page.screenshot({ path: `/tmp/exponent-10s-scrolled-${Date.now()}.png`, fullPage: true });
     
     // Wait for skeleton loaders to disappear (Implied APY loads dynamically)
     console.log('⏳ Waiting for skeleton loaders to disappear...');
@@ -173,100 +198,44 @@ export async function scrapeAllExponentAssets() {
       console.warn('⚠️  Timeout waiting for skeleton loaders, proceeding anyway...');
     }
     
-    // Wait for Implied APY values to become non-zero
-    console.log('⏳ Waiting for Implied APY values to populate (checking every 2s, max 40s)...');
-    let lastImpliedCount = 0;
-    try {
-      await page.waitForFunction(
-        () => {
-          const bodyText = document.body.textContent;
-          // Look for "Implied APY" followed by a non-zero percentage
-          const impliedApyMatches = bodyText.match(/Implied\s+APY\s+([\d.]+)%/gi);
-          if (!impliedApyMatches) return false;
-          
-          // Check if we have at least 5 non-zero Implied APY values
-          let nonZeroCount = 0;
-          for (const match of impliedApyMatches) {
-            const valueMatch = match.match(/([\d.]+)%/);
-            if (valueMatch && parseFloat(valueMatch[1]) > 0) {
-              nonZeroCount++;
-            }
-          }
-          // Store in window for Node.js to access
-          window.__impliedApyCount = nonZeroCount;
-          return nonZeroCount >= 5;
-        },
-        { timeout: 40000, polling: 2000 }
-      );
-      console.log('✅ Implied APY data loaded!');
-    } catch (e) {
-      // Get the last count before timeout
-      const finalCount = await page.evaluate(() => window.__impliedApyCount || 0);
-      console.warn(`⚠️  Timeout waiting for Implied APY data after 40s (found ${finalCount}/5 non-zero values), proceeding anyway...`);
-      
-      // Take screenshot for debugging
-      try {
-        const screenshotPath = `/tmp/exponent-implied-apy-timeout-${Date.now()}.png`;
-        await page.screenshot({ path: screenshotPath, fullPage: true });
-        console.log(`📸 Screenshot saved to: ${screenshotPath}`);
-      } catch (screenshotError) {
-        console.warn('Could not save screenshot:', screenshotError.message);
-      }
-      
-      // Log page content for debugging
-      const bodyText = await page.evaluate(() => document.body.innerText);
-      console.log('📄 Page title:', await page.title());
-      console.log('📄 Body text length:', bodyText.length);
-      console.log('📄 Body text preview (first 800 chars):', bodyText.substring(0, 800));
-      
-      // Check for specific patterns
-      const impliedApyCount = (bodyText.match(/Implied\s+APY/gi) || []).length;
-      const skeletonCount = await page.evaluate(() => document.querySelectorAll('.skeleton-gray').length);
-      console.log(`📊 Found "Implied APY" text ${impliedApyCount} times`);
-      console.log(`📊 Skeleton loaders remaining: ${skeletonCount}`);
-    }
+    // Take screenshot after skeleton removal
+    console.log('📸 Taking screenshot after skeleton removal...');
+    await page.screenshot({ path: `/tmp/exponent-20s-no-skeletons-${Date.now()}.png`, fullPage: true });
     
-    // Wait for leverage values to load (should show numbers, not ∞x)
-    console.log('⏳ Waiting for leverage values to load (checking every 2s, max 40s)...');
-    try {
-      await page.waitForFunction(
-        () => {
-          const bodyText = document.body.textContent;
-          const numericLeverageMatches = bodyText.match(/Effective\s+Exposure[\s\S]{0,20}[\d.]+x/gi);
-          const count = numericLeverageMatches ? numericLeverageMatches.length : 0;
-          // Store in window for Node.js to access
-          window.__leverageCount = count;
-          return numericLeverageMatches && numericLeverageMatches.length >= 5;
-        },
-        { timeout: 40000, polling: 2000 }
-      );
-      console.log('✅ Leverage data loaded!');
-    } catch (e) {
-      const finalCount = await page.evaluate(() => window.__leverageCount || 0);
-      console.warn(`⚠️  Timeout waiting for leverage data after 40s (found ${finalCount}/5 numeric values), proceeding anyway...`);
+    // Wait and take screenshots every 30 seconds to track value loading
+    console.log('⏳ Waiting and monitoring for values to appear...');
+    for (let i = 1; i <= 3; i++) {
+      const waitTime = 30000; // 30 seconds
+      console.log(`   Waiting ${waitTime/1000}s (check ${i}/3)...`);
+      await page.waitForTimeout(waitTime);
       
-      // Take screenshot for debugging
-      try {
-        const screenshotPath = `/tmp/exponent-leverage-timeout-${Date.now()}.png`;
-        await page.screenshot({ path: screenshotPath, fullPage: true });
-        console.log(`📸 Screenshot saved to: ${screenshotPath}`);
-      } catch (screenshotError) {
-        console.warn('Could not save screenshot:', screenshotError.message);
+      // Check current state
+      const impliedApyCount = await page.evaluate(() => {
+        const bodyText = document.body.innerText;
+        const matches = bodyText.match(/Implied\s+APY\s+([\d.]+)%/gi) || [];
+        return matches.filter(m => {
+          const val = parseFloat(m.match(/([\d.]+)%/)?.[1] || '0');
+          return val > 0;
+        }).length;
+      });
+      
+      const leverageCount = await page.evaluate(() => {
+        const bodyText = document.body.innerText;
+        const matches = bodyText.match(/Effective\s+Exposure[\s\S]{0,20}([\d.]+)x/gi) || [];
+        return matches.length;
+      });
+      
+      console.log(`   [t=${20 + i*30}s] Non-zero Implied APY: ${impliedApyCount}, Numeric Leverage: ${leverageCount}`);
+      
+      // Take screenshot
+      await page.screenshot({ path: `/tmp/exponent-${20 + i*30}s-check${i}-${Date.now()}.png`, fullPage: true });
+      
+      // If we have enough data, break early
+      if (impliedApyCount >= 5 && leverageCount >= 5) {
+        console.log('   ✅ Sufficient data detected, proceeding to extraction!');
+        break;
       }
-      
-      // Log page content for debugging
-      const bodyText = await page.evaluate(() => document.body.innerText);
-      console.log('📄 Body text sample (800 chars):', bodyText.substring(0, 800));
-      
-      // Check for specific patterns
-      const leverageCount = (bodyText.match(/Effective\s+Exposure/gi) || []).length;
-      const infinityCount = (bodyText.match(/∞x/gi) || []).length;
-      console.log(`📊 Found "Effective Exposure" text ${leverageCount} times`);
-      console.log(`📊 Found "∞x" (infinity) ${infinityCount} times`);
     }
-    
-    // Additional wait to ensure all data is rendered
-    await page.waitForTimeout(3000);
     
     console.log('🔍 Extracting asset data...');
     

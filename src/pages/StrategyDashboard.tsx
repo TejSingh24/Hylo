@@ -13,6 +13,7 @@ const StrategyDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('maturity');
   const [selectedProjects, setSelectedProjects] = useState<string[]>(['Hylo']);
+  const [selectedSources, setSelectedSources] = useState<string[]>(['ratex', 'exponent']);
   const [depositAmount, setDepositAmount] = useState<number>(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +22,7 @@ const StrategyDashboard: React.FC = () => {
   const [hasCheckedInitialFilter, setHasCheckedInitialFilter] = useState(false);
 
   // Define the projects to show in filters (in order)
-  const FILTER_PROJECTS = ['Hylo', 'Huma', 'Perena', 'ONE'];
+  const FILTER_PROJECTS = ['Hylo', 'Huma', 'Perena', 'Onre'];
 
   // Project name mapping for special cases
   const getProjectForAsset = (asset: AssetData): string | null => {
@@ -35,6 +36,14 @@ const StrategyDashboard: React.FC = () => {
     // Map PST assets to Huma
     if (baseAsset === 'PST' || assetName.includes('PST')) {
       return 'Huma';
+    }
+    // Exclude FLP and JLP from Onre - treat as Others
+    if (baseAsset === 'FLP' || assetName.includes('FLP') || baseAsset === 'JLP' || assetName.includes('JLP')) {
+      return 'Others';
+    }
+    // Map ONyc assets to Onre (standardize project name)
+    if (baseAsset === 'ONyc' || assetName.includes('ONyc') || asset.projectName === 'ONyc' || asset.projectName === 'Onre') {
+      return 'Onre';
     }
     return asset.projectName;
   };
@@ -69,6 +78,27 @@ const StrategyDashboard: React.FC = () => {
     setSelectedProjects([]);
   };
 
+  // Toggle source filter
+  const toggleSourceFilter = (source: string) => {
+    setSelectedSources(prev => {
+      if (prev.includes(source)) {
+        const newSelection = prev.filter(s => s !== source);
+        // If deselecting would leave nothing selected, select both instead
+        if (newSelection.length === 0) {
+          return ['ratex', 'exponent'];
+        }
+        return newSelection;
+      } else {
+        return [...prev, source];
+      }
+    });
+  };
+
+  // Get source count
+  const getSourceCount = (source: string): number => {
+    return assets.filter(asset => asset.source === source).length;
+  };
+
   // Fetch assets on mount
   useEffect(() => {
     loadAssets();
@@ -95,6 +125,14 @@ const StrategyDashboard: React.FC = () => {
       });
     }
 
+    // Apply source filter (multi-select) - always filter by source
+    if (selectedSources.length > 0) {
+      filtered = filtered.filter(asset => selectedSources.includes(asset.source));
+    } else {
+      // If no sources selected, show no assets
+      filtered = [];
+    }
+
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(asset =>
@@ -107,7 +145,7 @@ const StrategyDashboard: React.FC = () => {
     filtered = sortAssets(filtered, sortBy);
 
     setFilteredAssets(filtered);
-  }, [assets, searchTerm, sortBy, selectedProjects]);
+  }, [assets, searchTerm, sortBy, selectedProjects, selectedSources]);
 
   const loadAssets = async () => {
     setIsLoading(true);
@@ -308,6 +346,22 @@ const StrategyDashboard: React.FC = () => {
             onClick={() => toggleProjectFilter('Others')}
           >
             Others <span className="filter-count">{getProjectCount('Others')}</span>
+          </button>
+          
+          {/* Source Filters */}
+          <span className="filter-separator">|</span>
+          <span className="filter-label">Source:</span>
+          <button
+            className={`filter-pill filter-pill-ratex ${selectedSources.includes('ratex') ? 'active' : ''}`}
+            onClick={() => toggleSourceFilter('ratex')}
+          >
+            Rate-X <span className="filter-count">{getSourceCount('ratex')}</span>
+          </button>
+          <button
+            className={`filter-pill filter-pill-exponent ${selectedSources.includes('exponent') ? 'active' : ''}`}
+            onClick={() => toggleSourceFilter('exponent')}
+          >
+            Exponent <span className="filter-count">{getSourceCount('exponent')}</span>
           </button>
           
           {/* Amount Input */}

@@ -157,26 +157,18 @@ export async function scrapeAllExponentAssets() {
       'Accept-Language': 'en-US,en;q=0.9',
     });
     
-    // ========== SOLUTION 1: FETCH API OVERRIDE WITH CORS HEADERS ==========
-    console.log('🔧 Testing Ironforge with CORS headers (no URL replacement)...');
+    // ========== FETCH API OVERRIDE: Add CORS headers to Ironforge requests ==========
     await page.evaluateOnNewDocument(() => {
-      // Store original fetch
       const originalFetch = window.fetch;
       
-      // Override fetch to add CORS headers to Ironforge requests
       window.fetch = function(...args) {
         let [url, options = {}] = args;
         
-        // Add CORS headers to Ironforge RPC requests
         if (typeof url === 'string' && url.includes('rpc.ironforge.network')) {
-          console.log('🔄 ADDING CORS HEADERS to Ironforge request');
-          
-          // Ensure headers object exists
           if (!options.headers) {
             options.headers = {};
           }
           
-          // Add headers to make request look like it's from browser
           const headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers);
           headers.set('Origin', 'https://exponent.finance');
           headers.set('Referer', 'https://exponent.finance/');
@@ -184,14 +176,10 @@ export async function scrapeAllExponentAssets() {
           headers.set('Accept-Language', 'en-US,en;q=0.9');
           
           options.headers = headers;
-          console.log('   ✅ Headers added to Ironforge request');
         }
         
-        // Call original fetch with modified options
         return originalFetch(url, options);
       };
-      
-      console.log('✅ Fetch API override with CORS headers installed');
     });
     
     // Hide webdriver property
@@ -199,24 +187,15 @@ export async function scrapeAllExponentAssets() {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
     });
     
-    // ========== Network Request Interception Setup ==========
-    console.log('🌐 Setting up network request monitoring...');
-    const solanaResponses = [];
-    const apiResponses = [];
-    const heliusResponses = [];
+    // ========== Network Request Monitoring ==========
+    const rpcResponses = { total: 0, success: 0, failed: 0 };
     
-    // ========== SOLUTION 2: REQUEST INTERCEPTION (ADD HEADERS ONLY) ==========
-    console.log('🔧 Enabling Puppeteer request interception to add headers...');
     await page.setRequestInterception(true);
     
     page.on('request', request => {
       const url = request.url();
       
-      // Add CORS headers to Ironforge requests (backup to fetch override)
       if (url.includes('rpc.ironforge.network')) {
-        console.log(`  🔄 PUPPETEER INTERCEPT: Adding headers to Ironforge request`);
-        
-        // Get existing headers and add CORS headers
         const headers = {
           ...request.headers(),
           'Origin': 'https://exponent.finance',
@@ -226,79 +205,24 @@ export async function scrapeAllExponentAssets() {
           'Content-Type': 'application/json',
         };
         
-        request.continue({
-          headers,
-        });
-      } else if (url.includes('helius-rpc.com')) {
-        // Skip Helius logging for now (we're not using it)
-        console.log(`  ✅ Helius RPC Request: ${request.method()}`);
-        request.continue();
+        request.continue({ headers });
       } else {
-        // Log other requests
-        if (url.includes('solana') || url.includes('mainnet')) {
-          console.log(`  📤 Other RPC: ${url.substring(0, 60)}...`);
-        }
         request.continue();
       }
     });
     
-    // Capture responses with better filtering
+    // Track RPC response stats
     page.on('response', async response => {
       try {
         const url = response.url();
         const status = response.status();
         
-        // Track Ironforge responses (test if headers help with 403)
         if (url.includes('rpc.ironforge.network')) {
-          console.log(`  📥 Ironforge Response: ${status} ${status === 200 ? '(SUCCESS!)' : status === 403 ? '(FORBIDDEN - headers did not help)' : '(FAILED)'}`);
-          
-          const contentType = response.headers()['content-type'] || '';
-          if (contentType.includes('json')) {
-            try {
-              const data = await response.json();
-              solanaResponses.push({
-                url: url,
-                status: status,
-                data: data,
-                timestamp: new Date().toISOString()
-              });
-              
-              // Log if we got actual pool data
-              const dataStr = JSON.stringify(data);
-              if (dataStr.includes('"result"') && status === 200) {
-                console.log(`     🎯 GOT BLOCKCHAIN DATA! (${dataStr.length} bytes)`);
-                if (dataStr.includes('value') || dataStr.includes('data')) {
-                  console.log(`     💎 Contains account/pool data!`);
-                }
-              } else if (dataStr.includes('error')) {
-                console.log(`     ❌ RPC Error: ${dataStr.substring(0, 100)}`);
-              }
-            } catch (jsonError) {
-              console.log(`     ⚠️  Could not parse Ironforge JSON: ${jsonError.message}`);
-            }
-          }
-        }
-        // Track Helius responses (not used anymore)
-        else if (url.includes('helius-rpc.com')) {
-          console.log(`  ⚠️  Unexpected Helius response (should be using Ironforge now)`);
-        }
-        // Check for Exponent API calls
-        else if (url.includes('api.exponent') || url.includes('exponent.finance/api')) {
-          console.log(`  📥 Exponent API: ${status} ${url.substring(0, 60)}...`);
-          
-          const contentType = response.headers()['content-type'] || '';
-          if (contentType.includes('json')) {
-            try {
-              const data = await response.json();
-              apiResponses.push({
-                url: url,
-                status: status,
-                data: data,
-                timestamp: new Date().toISOString()
-              });
-            } catch (jsonError) {
-              // Ignore
-            }
+          rpcResponses.total++;
+          if (status === 200) {
+            rpcResponses.success++;
+          } else {
+            rpcResponses.failed++;
           }
         }
       } catch (error) {
@@ -320,40 +244,8 @@ export async function scrapeAllExponentAssets() {
     console.log('📸 Taking screenshot at t=0s (initial load)...');
     await page.screenshot({ path: `/tmp/exponent-00s-initial-${Date.now()}.png`, fullPage: true });
     
-    // ========== Extract __NEXT_DATA__ (Next.js server data) ==========
-    console.log('🔍 Checking for __NEXT_DATA__ (Next.js pre-rendered data)...');
-    const nextData = await page.evaluate(() => {
-      const script = document.getElementById('__NEXT_DATA__');
-      if (script) {
-        try {
-          return JSON.parse(script.textContent);
-        } catch (e) {
-          return { error: 'Failed to parse __NEXT_DATA__', message: e.message };
-        }
-      }
-      return null;
-    });
-    
-    if (nextData) {
-      console.log('  ✅ Found __NEXT_DATA__');
-      console.log(`     Keys: ${Object.keys(nextData).join(', ')}`);
-      if (nextData.props?.pageProps) {
-        console.log(`     pageProps keys: ${Object.keys(nextData.props.pageProps).join(', ')}`);
-        // Log a snippet of the data
-        const pagePropsStr = JSON.stringify(nextData.props.pageProps);
-        console.log(`     pageProps size: ${pagePropsStr.length} bytes`);
-        if (pagePropsStr.includes('impliedYield') || pagePropsStr.includes('impliedAPY')) {
-          console.log('     🎯 Contains implied yield data!');
-        }
-        if (pagePropsStr.includes('leverage') || pagePropsStr.includes('exposure')) {
-          console.log('     🎯 Contains leverage/exposure data!');
-        }
-      }
-    } else {
-      console.log('  ⚠️  No __NEXT_DATA__ found (not a Next.js app or CSR only)');
-    }
-    
-    // Interact with the page to trigger calculations - click on first card
+    // Wait for page to load completely
+    await page.waitForTimeout(2000);    // Interact with the page to trigger calculations - click on first card
     console.log('🖱️  Interacting with page (clicking on first card to trigger calculations)...');
     try {
       // Move mouse around the page area where cards are displayed
@@ -494,54 +386,8 @@ export async function scrapeAllExponentAssets() {
       }
     }
     
-    // ========== Network Request Summary ==========
-    console.log('\n📊 Network Request Summary:');
-    console.log(`   📥 Ironforge responses: ${solanaResponses.length}`);
-    console.log(`   📡 Exponent API responses: ${apiResponses.length}`);
-    
-    if (solanaResponses.length > 0) {
-      console.log('\n   🎯 Ironforge RPC Responses (Testing CORS Headers):');
-      let successCount = 0;
-      let errorCount = 0;
-      let forbiddenCount = 0;
-      
-      solanaResponses.forEach((resp, idx) => {
-        if (resp.status === 200) {
-          successCount++;
-          const dataStr = JSON.stringify(resp.data);
-          if (dataStr.includes('"result"') && dataStr.length > 200) {
-            console.log(`     ${idx + 1}. ✅ SUCCESS with data (${dataStr.length} bytes)`);
-          } else {
-            console.log(`     ${idx + 1}. ✅ 200 OK but minimal data (${dataStr.length} bytes)`);
-          }
-        } else if (resp.status === 403) {
-          forbiddenCount++;
-          console.log(`     ${idx + 1}. ❌ Status 403 FORBIDDEN`);
-        } else {
-          errorCount++;
-          console.log(`     ${idx + 1}. ❌ Status ${resp.status}`);
-        }
-      });
-      
-      console.log(`   📊 Summary: ${successCount} successful, ${forbiddenCount} forbidden (403), ${errorCount} other errors`);
-      
-      if (successCount > 0) {
-        console.log('   🎉 CORS HEADERS WORKING! Ironforge accepts requests with proper headers!');
-      } else if (forbiddenCount > 0) {
-        console.log('   ❌ CORS HEADERS NOT ENOUGH - Ironforge still blocking with 403. Need proxy solution.');
-      } else {
-        console.log('   ⚠️  Different error - not a blocking issue');
-      }
-    } else {
-      console.log('   ❌ NO IRONFORGE RESPONSES - Something wrong with monitoring!');
-    }
-    
-    if (apiResponses.length > 0) {
-      console.log('\n   🔍 Exponent API Responses:');
-      apiResponses.forEach((resp, idx) => {
-        console.log(`     ${idx + 1}. ${resp.url.substring(0, 60)}... (${resp.status})`);
-      });
-    }
+    // Log final RPC stats
+    console.log(`\n📊 RPC Requests: ${rpcResponses.success}/${rpcResponses.total} successful`);
     
     console.log('\n🔍 Extracting asset data...');
     

@@ -12,6 +12,7 @@ export interface AssetData {
   assetBoost: number | null;
   ratexBoost: number | null;
   impliedYield: number | null; // Implied Yield percentage (e.g., 62.115)
+  source: 'ratex' | 'exponent'; // Platform source: 'ratex' or 'exponent'
   
   // Detail page fields (scraped from liquidity detail page)
   rangeLower: number | null;   // Lower bound of range (e.g., 10 from "10% - 30%")
@@ -28,7 +29,7 @@ export interface AssetData {
   ytPriceCurrent: number | null;  // YT price using impliedYield
   ytPriceLower: number | null;    // YT price using rangeLower
   ytPriceUpper: number | null;    // YT price using rangeUpper
-  upsidePotential: number | null; // Percentage upside (ytUpper vs ytCurrent)
+  dailyYieldRate: number | null;  // Daily yield rate: leverage × daily APY × fee multiplier
   downsideRisk: number | null;    // Percentage downside (ytCurrent vs ytLower)
   endDayCurrentYield: number | null; // Loss % if 1 day left with current yield
   endDayLowerYield: number | null;   // Loss % if 1 day left with lower yield (worst case)

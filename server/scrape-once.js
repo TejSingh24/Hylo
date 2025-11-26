@@ -181,7 +181,7 @@ async function main() {
         exponentAsset.ytPriceCurrent = ytMetrics.ytPriceCurrent;
         exponentAsset.ytPriceLower = ytMetrics.ytPriceLower;
         exponentAsset.ytPriceUpper = ytMetrics.ytPriceUpper; // Will be null
-        exponentAsset.upsidePotential = ytMetrics.upsidePotential; // Will be null
+        exponentAsset.dailyYieldRate = ytMetrics.dailyYieldRate;
         exponentAsset.downsideRisk = ytMetrics.downsideRisk;
         exponentAsset.endDayCurrentYield = ytMetrics.endDayCurrentYield;
         exponentAsset.endDayLowerYield = ytMetrics.endDayLowerYield;
@@ -239,7 +239,7 @@ async function main() {
           ytPriceCurrent: newAsset.ytPriceCurrent ?? null,
           ytPriceLower: newAsset.ytPriceLower ?? null,
           ytPriceUpper: newAsset.ytPriceUpper ?? null,
-          upsidePotential: newAsset.upsidePotential ?? null,
+          dailyYieldRate: newAsset.dailyYieldRate ?? null,
           downsideRisk: newAsset.downsideRisk ?? null,
           endDayCurrentYield: newAsset.endDayCurrentYield ?? null,
           endDayLowerYield: newAsset.endDayLowerYield ?? null,
@@ -284,7 +284,7 @@ async function main() {
         ytPriceCurrent: ytMetrics.ytPriceCurrent,
         ytPriceLower: ytMetrics.ytPriceLower,
         ytPriceUpper: ytMetrics.ytPriceUpper,
-        upsidePotential: ytMetrics.upsidePotential,
+        dailyYieldRate: ytMetrics.dailyYieldRate,
         downsideRisk: ytMetrics.downsideRisk,
         endDayCurrentYield: ytMetrics.endDayCurrentYield,
         endDayLowerYield: ytMetrics.endDayLowerYield,

@@ -230,7 +230,7 @@ export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUppe
     ytPriceCurrent: null,
     ytPriceLower: null,
     ytPriceUpper: null,
-    upsidePotential: null,
+    dailyYieldRate: null,
     downsideRisk: null,
     endDayCurrentYield: null,
     endDayLowerYield: null,
@@ -253,7 +253,7 @@ export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUppe
         ytPriceCurrent: 0,
         ytPriceLower: 0,
         ytPriceUpper: 0,
-        upsidePotential: 0,
+        dailyYieldRate: 0,
         downsideRisk: 0,
         endDayCurrentYield: 0,
         endDayLowerYield: 0,
@@ -274,12 +274,15 @@ export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUppe
     result.ytPriceLower = calculatePrice(maturity, rangeLower, lastUpdated);
     result.ytPriceUpper = calculatePrice(maturity, rangeUpper, lastUpdated);
     
-    // Calculate upside/downside (only if all prices available)
-    if (result.ytPriceCurrent && result.ytPriceUpper) {
-      const upside = ((result.ytPriceUpper - result.ytPriceCurrent) / result.ytPriceCurrent) * 100;
-      result.upsidePotential = formatPercentage(upside);
+    // Calculate Daily Yield Rate
+    if (leverage !== null && leverage !== undefined && apy !== null && apy !== undefined) {
+      const apyDecimal = apy / 100;
+      const feeMultiplier = source === 'exponent' ? 0.945 : 0.95;
+      const dailyYield = leverage * (Math.pow(1 + apyDecimal, 1/365) - 1) * 100 * feeMultiplier;
+      result.dailyYieldRate = formatPercentage(dailyYield);
     }
     
+    // Calculate downside risk
     if (result.ytPriceCurrent && result.ytPriceLower) {
       const downside = ((result.ytPriceCurrent - result.ytPriceLower) / result.ytPriceCurrent) * 100;
       result.downsideRisk = formatPercentage(downside);

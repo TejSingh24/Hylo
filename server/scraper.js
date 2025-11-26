@@ -737,7 +737,7 @@ export async function scrapeAllAssets() {
             // Check if this is a complete card with all required fields
             const hasYieldExposure = cardText.includes('Yield Exposure');
             const hasAPY = cardText.includes('Underlying APY');
-            const hasDays = cardText.includes('Days');
+            const hasDays = cardText.includes('Days') || cardText.includes('Hours');
             const hasAssetName = cardText.includes(fullAssetName);
             
             // IMPORTANT: Make sure this card contains ONLY this asset's data

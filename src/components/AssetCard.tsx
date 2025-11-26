@@ -87,6 +87,7 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
         backgroundImage: asset.projectBackgroundImage 
           ? `linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.2)), url("${asset.projectBackgroundImage}")`
           : undefined,
+        backgroundColor: asset.projectBackgroundImage ? undefined : 'rgba(13, 15, 23, 0.65)',
         backgroundSize: 'auto 100%',
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'right top'

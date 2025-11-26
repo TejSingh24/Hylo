@@ -293,6 +293,33 @@ export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUppe
       result.dailyDecayRate = 100;
       result.endDayCurrentYield = 0;
       result.endDayLowerYield = 0;
+      
+      // Calculate Expected Recovery Yield with FULL 1 day (not remaining hours)
+      if (leverage !== null && leverage !== undefined && apy !== null && apy !== undefined) {
+        const apyDecimal = apy / 100;
+        // Use 1 full day for standardized comparison
+        const grossYield = leverage * (Math.pow(1 + apyDecimal, 1/365) - 1) * 365 * (1/365) * 100;
+        const feeMultiplier = source === 'exponent' ? 0.945 : 0.95;
+        const netYield = grossYield * feeMultiplier;
+        result.expectedRecoveryYield = formatPercentage(netYield);
+      }
+      
+      // Calculate points with ACTUAL remaining time (including hours)
+      const preciseDays = calculateDaysToMaturity(maturity, lastUpdated);
+      const daysToUse = preciseDays !== null ? preciseDays : maturityDays;
+      
+      if (leverage !== null && leverage !== undefined && assetBoost !== null && assetBoost !== undefined && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
+        const depositAmount = 1;
+        const totalPoints = leverage * assetBoost * depositAmount * daysToUse;
+        result.totalExpectedPoints = Math.round(totalPoints);
+      }
+      
+      if (leverage !== null && leverage !== undefined && assetBoost !== null && assetBoost !== undefined) {
+        const depositAmount = 1;
+        const pointsPerDay = leverage * assetBoost * depositAmount;
+        result.expectedPointsPerDay = Math.round(pointsPerDay);
+      }
+      
       return result;
     }
     
@@ -550,11 +577,19 @@ export async function scrapeAssetData(assetName = 'HyloSOL') {
         console.log('Found Implied Yield:', result.impliedYield);
       }
       
-      // Extract Maturity Days - look for patterns like "14 Days" or just number before "Days"
-      const maturityMatch = cardText.match(/([\d]+)\s*Days/i);
+      // Extract Maturity Days - look for patterns like "14 Days" or "10 Hours"
+      let maturityMatch = cardText.match(/([\d]+)\s*Days/i);
       if (maturityMatch) {
         result.maturityDays = parseInt(maturityMatch[1]);
         console.log('Found maturity:', result.maturityDays);
+      } else {
+        // Handle "Hours" format for assets expiring soon - convert to decimal days
+        const hoursMatch = cardText.match(/([\d.]+)\s*Hours?/i);
+        if (hoursMatch) {
+          const hours = parseFloat(hoursMatch[1]);
+          result.maturityDays = hours / 24; // Convert hours to decimal days (e.g., 10 hours = 0.4167 days)
+          console.log('Found maturity in hours:', hours, 'hours, converted to', result.maturityDays, 'days');
+        }
       }
       
       // Extract Asset Boost and RateX Boost

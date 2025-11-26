@@ -211,21 +211,66 @@ async function main() {
     await updateGist(GIST_ID, phase1GistData, GIST_TOKEN);
     console.log('✅ Phase 1 Gist updated - Frontend can use calculator now!');
     
-    // ========== PHASE 2: Scrape Detail Pages (Sequential) ==========
-    console.log('\n🚀 Starting Phase 2: Scraping detail pages sequentially...');
+    // ========== PHASE 2: Scrape Detail Pages (Hylo Priority + Parallel) ==========
+    console.log('\n🚀 Starting Phase 2: Hylo assets first, then remaining (parallel)...');
+    
+    // Filter Hylo assets by projectName (for RateX) and matching baseAsset (for Exponent)
     const ratexAssets = phase1MergedData.filter(a => a.source === 'ratex');
     const exponentAssets = phase1MergedData.filter(a => a.source === 'exponent');
     
-    const page = await browser.newPage();
+    // RateX Hylo assets filtered by projectName
+    const ratexHylo = ratexAssets.filter(a => a.projectName === 'Hylo');
     
-    console.log('\n📄 Phase 2A: RateX detail pages...');
-    const phase2RatexData = await scrapeDetailPages(page, ratexAssets, existingGistData);
+    // Exponent Hylo assets: match baseAsset with RateX Hylo assets
+    const hyloBaseAssets = ratexHylo.map(a => a.baseAsset.toLowerCase());
+    const exponentHylo = exponentAssets.filter(a => hyloBaseAssets.includes(a.baseAsset.toLowerCase()));
     
-    console.log('\n📄 Phase 2B: Exponent detail pages...');
-    const phase2ExponentData = await scrapeExponentDetailPages(page, exponentAssets, existingGistData);
+    // Remaining (non-Hylo) assets
+    const ratexOthers = ratexAssets.filter(a => a.projectName !== 'Hylo');
+    const exponentOthers = exponentAssets.filter(a => !hyloBaseAssets.includes(a.baseAsset.toLowerCase()));
     
-    const phase2Data = [...phase2RatexData, ...phase2ExponentData];
-    console.log(`\n✅ Phase 2 scraping complete: ${phase2RatexData.length} RateX + ${phase2ExponentData.length} Exponent = ${phase2Data.length} total assets`);
+    console.log(`\n📌 Phase 2A: Scraping Hylo assets first (${ratexHylo.length} RateX + ${exponentHylo.length} Exponent)...`);
+    
+    // Create separate pages for parallel execution
+    const ratexPage = await browser.newPage();
+    const exponentPage = await browser.newPage();
+    
+    // Scrape Hylo assets in parallel
+    const [phase2AratexData, phase2AExponentData] = await Promise.all([
+      scrapeDetailPages(ratexPage, ratexHylo, existingGistData),
+      scrapeExponentDetailPages(exponentPage, exponentHylo, existingGistData)
+    ]);
+    
+    const phase2AData = [...phase2AratexData, ...phase2AExponentData];
+    
+    // Merge Phase 2A (Hylo) with Phase 1 data for all assets
+    const phase2AFullData = phase1MergedData.map(asset => {
+      const hyloData = phase2AData.find(h => h.asset === asset.asset);
+      return hyloData || asset; // Use Hylo Phase 2 data if available, otherwise Phase 1
+    });
+    
+    // Update Gist with Hylo data (quick update for frontend)
+    console.log('\n📤 Updating Gist with Hylo data (Phase 2A)...');
+    const phase2ATimestamp = {
+      lastUpdated: new Date().toISOString(),
+      phase: 2,
+      phaseStatus: 'hylo-complete',
+      assetsCount: phase2AFullData.length,
+      assets: phase2AFullData
+    };
+    await updateGist(GIST_ID, phase2ATimestamp, GIST_TOKEN);
+    console.log('✅ Hylo data now live in Gist!');
+    
+    // Scrape remaining assets in parallel
+    console.log(`\n📌 Phase 2B: Scraping remaining assets (${ratexOthers.length} RateX + ${exponentOthers.length} Exponent)...`);
+    const [phase2BRatexData, phase2BExponentData] = await Promise.all([
+      scrapeDetailPages(ratexPage, ratexOthers, existingGistData),
+      scrapeExponentDetailPages(exponentPage, exponentOthers, existingGistData)
+    ]);
+    
+    // Combine all Phase 2 data
+    const phase2Data = [...phase2AData, ...phase2BRatexData, ...phase2BExponentData];
+    console.log(`\n✅ Phase 2 scraping complete: ${phase2AData.length} Hylo + ${phase2BRatexData.length} RateX + ${phase2BExponentData.length} Exponent = ${phase2Data.length} total assets`);
     
     // ========== Update Gist (Phase 2) ==========
     console.log('\n📤 Updating Gist with Phase 2 data...');

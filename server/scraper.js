@@ -1240,8 +1240,8 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
               const year = '20' + yearShort;
               
               if (monthStr) {
-                const hours = 16;
-                const minutes = '00';
+                const hours = 10;
+                const minutes = '30';
                 const tzOffsetMinutes = -(5 * 60 + 30);
                 
                 const localDate = new Date(`${year}-${monthStr}-${day}T${hours}:${minutes}:00`);

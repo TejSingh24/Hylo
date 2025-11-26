@@ -328,6 +328,25 @@ export async function scrapeAllExponentAssets() {
     
     console.log('🔍 Extracting asset data...');
     
+    // Extract all token images in one batch (fast - single query)
+    console.log('🖼️  Extracting asset symbol images...');
+    const tokenImages = await page.evaluate(() => {
+      const images = {};
+      // Search through all token images
+      document.querySelectorAll('img[src*="/images/icons/tokens/"]').forEach(img => {
+        const card = img.closest('[class*="card"]') || img.closest('div');
+        if (card) {
+          const text = card.textContent;
+          const match = text.match(/YT-([A-Za-z0-9*+\-]+)-\d{2}[A-Z]{3}\d{2}/);
+          if (match) {
+            images[match[1]] = img.src;
+          }
+        }
+      });
+      return images;
+    });
+    console.log(`   Found ${Object.keys(tokenImages).length} token images`);
+    
     // Extract all asset data
     const assets = await page.evaluate(() => {
       const results = [];
@@ -464,7 +483,7 @@ export async function scrapeAllExponentAssets() {
       // Visual assets - not available on farm page (Phase 1)
       asset.projectBackgroundImage = null;
       asset.projectName = null;
-      asset.assetSymbolImage = null;
+      asset.assetSymbolImage = tokenImages[asset.baseAsset] || null;
     }
     
     await browser.close();

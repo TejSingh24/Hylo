@@ -159,11 +159,51 @@ export async function scrapeAllExponentAssets() {
     const solanaResponses = [];
     const apiResponses = [];
     
-    // Monitor all network requests
+    // ========== RPC ENDPOINT REPLACEMENT (FIX FOR 403 FORBIDDEN) ==========
+    console.log('🔧 Enabling RPC request interception to fix 403 errors...');
+    await page.setRequestInterception(true);
+    
     page.on('request', request => {
       const url = request.url();
-      if (url.includes('solana') || url.includes('rpc') || url.includes('mainnet')) {
-        console.log(`  📤 RPC Request: ${request.method()} ${url.substring(0, 80)}...`);
+      
+      // Replace Ironforge RPC (which returns 403) with public Solana RPC
+      if (url.includes('rpc.ironforge.network')) {
+        console.log(`  🔄 INTERCEPTING Ironforge RPC call`);
+        console.log(`     Original URL: ${url.substring(0, 80)}...`);
+        
+        // Extract the API key if present (for logging)
+        const apiKeyMatch = url.match(/apiKey=([A-Z0-9]+)/);
+        if (apiKeyMatch) {
+          console.log(`     Had API Key: ${apiKeyMatch[1].substring(0, 10)}...`);
+        }
+        
+        // Use public Solana RPC endpoint instead (no API key needed)
+        const newUrl = 'https://api.mainnet-beta.solana.com';
+        console.log(`     Replaced with: ${newUrl}`);
+        
+        // Get the POST data (contains the actual RPC method/params)
+        const postData = request.postData();
+        if (postData) {
+          console.log(`     POST body: ${postData.substring(0, 150)}...`);
+        }
+        
+        request.continue({
+          url: newUrl,
+          method: request.method(),
+          postData: postData, // Keep the RPC request body
+          headers: {
+            ...request.headers(),
+            'Content-Type': 'application/json',
+            'Origin': 'https://www.exponent.finance',
+            'Referer': 'https://www.exponent.finance/'
+          }
+        });
+      } else {
+        // Log other RPC requests
+        if (url.includes('solana') || url.includes('rpc') || url.includes('mainnet')) {
+          console.log(`  📤 RPC Request: ${request.method()} ${url.substring(0, 80)}...`);
+        }
+        request.continue();
       }
     });
     

@@ -239,6 +239,12 @@ async function main() {
     console.log('✅ Phase 1 Gist updated - Frontend can use calculator now!');
     
     // ========== PHASE 2: Scrape Detail Pages (Hylo Priority + Parallel) ==========
+    // TEMPORARILY DISABLED FOR TESTING PHASE 1 RPC FIX
+    console.log('\n⏸️  Phase 2 temporarily disabled for testing...');
+    console.log('✅ Scraping complete! (Phase 1 only)');
+    return;
+    
+    /* PHASE 2 CODE - COMMENTED OUT FOR FASTER TESTING
     console.log('\n🚀 Starting Phase 2: Hylo assets first, then remaining (parallel)...');
     
     // Filter Hylo assets by projectName (for RateX) and matching baseAsset (for Exponent)
@@ -329,6 +335,7 @@ async function main() {
     await updateGist(GIST_ID, phase2Timestamp, GIST_TOKEN);
     console.log('✅ Phase 2 Gist updated - Complete data available!');
     console.log(`🔗 Raw URL: https://gist.githubusercontent.com/TejSingh24/${GIST_ID}/raw/ratex-assets.json`);
+    */ // END PHASE 2 COMMENTED CODE
     
     // Close browser
     await browser.close();

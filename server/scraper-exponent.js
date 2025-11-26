@@ -174,7 +174,8 @@ export async function scrapeAllExponentAssets() {
     }
     
     // Wait for Implied APY values to become non-zero
-    console.log('⏳ Waiting for Implied APY values to populate (checking every 1s, max 30s)...');
+    console.log('⏳ Waiting for Implied APY values to populate (checking every 2s, max 40s)...');
+    let lastImpliedCount = 0;
     try {
       await page.waitForFunction(
         () => {
@@ -191,32 +192,37 @@ export async function scrapeAllExponentAssets() {
               nonZeroCount++;
             }
           }
-          console.log(`  Found ${nonZeroCount} non-zero Implied APY values`);
+          // Store in window for Node.js to access
+          window.__impliedApyCount = nonZeroCount;
           return nonZeroCount >= 5;
         },
-        { timeout: 30000, polling: 1000 }
+        { timeout: 40000, polling: 2000 }
       );
       console.log('✅ Implied APY data loaded!');
     } catch (e) {
-      console.warn('⚠️  Timeout waiting for Implied APY data after 30s, proceeding anyway...');
+      // Get the last count before timeout
+      const finalCount = await page.evaluate(() => window.__impliedApyCount || 0);
+      console.warn(`⚠️  Timeout waiting for Implied APY data after 40s (found ${finalCount}/5 non-zero values), proceeding anyway...`);
     }
     
     // Wait for leverage values to load (should show numbers, not ∞x)
-    console.log('⏳ Waiting for leverage values to load (checking every 1s, max 30s)...');
+    console.log('⏳ Waiting for leverage values to load (checking every 2s, max 40s)...');
     try {
       await page.waitForFunction(
         () => {
           const bodyText = document.body.textContent;
           const numericLeverageMatches = bodyText.match(/Effective\s+Exposure[\s\S]{0,20}[\d.]+x/gi);
           const count = numericLeverageMatches ? numericLeverageMatches.length : 0;
-          console.log(`  Found ${count} numeric leverage values (not ∞)`);
+          // Store in window for Node.js to access
+          window.__leverageCount = count;
           return numericLeverageMatches && numericLeverageMatches.length >= 5;
         },
-        { timeout: 30000, polling: 1000 }
+        { timeout: 40000, polling: 2000 }
       );
       console.log('✅ Leverage data loaded!');
     } catch (e) {
-      console.warn('⚠️  Timeout waiting for leverage data after 30s, proceeding anyway...');
+      const finalCount = await page.evaluate(() => window.__leverageCount || 0);
+      console.warn(`⚠️  Timeout waiting for leverage data after 40s (found ${finalCount}/5 numeric values), proceeding anyway...`);
     }
     
     // Additional wait to ensure all data is rendered

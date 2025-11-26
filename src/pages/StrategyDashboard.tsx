@@ -170,11 +170,11 @@ const StrategyDashboard: React.FC = () => {
         });
 
       case 'upside':
-        // Sort by upside potential (descending - highest first)
+        // Sort by daily yield rate (descending - highest first)
         return sorted.sort((a, b) => {
-          const upsideA = a.upsidePotential ?? 0;
-          const upsideB = b.upsidePotential ?? 0;
-          return upsideB - upsideA;
+          const yieldA = a.dailyYieldRate ?? 0;
+          const yieldB = b.dailyYieldRate ?? 0;
+          return yieldB - yieldA;
         });
 
       case 'risk':

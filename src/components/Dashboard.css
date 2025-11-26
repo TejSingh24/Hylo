@@ -836,6 +836,28 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Filter Separator */
+.filter-separator {
+  color: rgba(148, 163, 184, 0.4);
+  font-size: 1.2rem;
+  font-weight: 300;
+  margin: 0 0.75rem;
+  user-select: none;
+}
+
+/* Source Filter Pills */
+.filter-pill-ratex.active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(139, 92, 246, 0.15) 100%);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+}
+
+.filter-pill-exponent.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 100%);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+}
+
 /* Amount Input */
 .amount-input-container {
   display: flex;

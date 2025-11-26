@@ -154,6 +154,70 @@ export async function scrapeAllExponentAssets() {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
     });
     
+    // ========== Network Request Interception Setup ==========
+    console.log('🌐 Setting up network request monitoring...');
+    const solanaResponses = [];
+    const apiResponses = [];
+    
+    // Monitor all network requests
+    page.on('request', request => {
+      const url = request.url();
+      if (url.includes('solana') || url.includes('rpc') || url.includes('mainnet')) {
+        console.log(`  📤 RPC Request: ${request.method()} ${url.substring(0, 80)}...`);
+      }
+    });
+    
+    // Capture Solana RPC responses
+    page.on('response', async response => {
+      try {
+        const url = response.url();
+        
+        // Check for Solana RPC calls
+        if (url.includes('solana') || url.includes('rpc') || url.includes('mainnet-beta')) {
+          console.log(`  📥 RPC Response: ${response.status()} ${url.substring(0, 80)}...`);
+          
+          const contentType = response.headers()['content-type'] || '';
+          if (contentType.includes('json')) {
+            try {
+              const data = await response.json();
+              solanaResponses.push({
+                url: url,
+                status: response.status(),
+                data: data,
+                timestamp: new Date().toISOString()
+              });
+              console.log(`     ✅ Captured RPC response (${JSON.stringify(data).length} bytes)`);
+            } catch (jsonError) {
+              console.log(`     ⚠️  Could not parse RPC JSON: ${jsonError.message}`);
+            }
+          }
+        }
+        
+        // Check for Exponent API calls
+        if (url.includes('api.exponent') || url.includes('exponent.finance/api')) {
+          console.log(`  📥 API Response: ${response.status()} ${url}`);
+          
+          const contentType = response.headers()['content-type'] || '';
+          if (contentType.includes('json')) {
+            try {
+              const data = await response.json();
+              apiResponses.push({
+                url: url,
+                status: response.status(),
+                data: data,
+                timestamp: new Date().toISOString()
+              });
+              console.log(`     ✅ Captured API response`);
+            } catch (jsonError) {
+              console.log(`     ⚠️  Could not parse API JSON: ${jsonError.message}`);
+            }
+          }
+        }
+      } catch (error) {
+        // Ignore response parsing errors
+      }
+    });
+    
     console.log('📡 Navigating to Exponent Finance farm page...');
     await page.goto('https://www.exponent.finance/farm', {
       waitUntil: 'networkidle0', // Wait until no network activity for 500ms
@@ -167,6 +231,39 @@ export async function scrapeAllExponentAssets() {
     // Take initial screenshot
     console.log('📸 Taking screenshot at t=0s (initial load)...');
     await page.screenshot({ path: `/tmp/exponent-00s-initial-${Date.now()}.png`, fullPage: true });
+    
+    // ========== Extract __NEXT_DATA__ (Next.js server data) ==========
+    console.log('🔍 Checking for __NEXT_DATA__ (Next.js pre-rendered data)...');
+    const nextData = await page.evaluate(() => {
+      const script = document.getElementById('__NEXT_DATA__');
+      if (script) {
+        try {
+          return JSON.parse(script.textContent);
+        } catch (e) {
+          return { error: 'Failed to parse __NEXT_DATA__', message: e.message };
+        }
+      }
+      return null;
+    });
+    
+    if (nextData) {
+      console.log('  ✅ Found __NEXT_DATA__');
+      console.log(`     Keys: ${Object.keys(nextData).join(', ')}`);
+      if (nextData.props?.pageProps) {
+        console.log(`     pageProps keys: ${Object.keys(nextData.props.pageProps).join(', ')}`);
+        // Log a snippet of the data
+        const pagePropsStr = JSON.stringify(nextData.props.pageProps);
+        console.log(`     pageProps size: ${pagePropsStr.length} bytes`);
+        if (pagePropsStr.includes('impliedYield') || pagePropsStr.includes('impliedAPY')) {
+          console.log('     🎯 Contains implied yield data!');
+        }
+        if (pagePropsStr.includes('leverage') || pagePropsStr.includes('exposure')) {
+          console.log('     🎯 Contains leverage/exposure data!');
+        }
+      }
+    } else {
+      console.log('  ⚠️  No __NEXT_DATA__ found (not a Next.js app or CSR only)');
+    }
     
     // Interact with the page to trigger calculations - click on first card
     console.log('🖱️  Interacting with page (clicking on first card to trigger calculations)...');
@@ -309,7 +406,43 @@ export async function scrapeAllExponentAssets() {
       }
     }
     
-    console.log('🔍 Extracting asset data...');
+    // ========== Network Request Summary ==========
+    console.log('\n📊 Network Request Summary:');
+    console.log(`   Solana RPC responses captured: ${solanaResponses.length}`);
+    console.log(`   Exponent API responses captured: ${apiResponses.length}`);
+    
+    if (solanaResponses.length > 0) {
+      console.log('\n   🔍 Solana RPC Responses:');
+      solanaResponses.forEach((resp, idx) => {
+        console.log(`     ${idx + 1}. ${resp.url.substring(0, 60)}... (${resp.status})`);
+        // Check if response contains relevant data
+        const dataStr = JSON.stringify(resp.data);
+        if (dataStr.includes('result')) {
+          console.log(`        Contains result field`);
+        }
+      });
+    }
+    
+    if (apiResponses.length > 0) {
+      console.log('\n   🔍 Exponent API Responses:');
+      apiResponses.forEach((resp, idx) => {
+        console.log(`     ${idx + 1}. ${resp.url} (${resp.status})`);
+      });
+    }
+    
+    // Try to extract pool data from RPC responses if available
+    if (solanaResponses.length > 0) {
+      console.log('\n   🎯 Analyzing RPC responses for pool data...');
+      for (const resp of solanaResponses) {
+        const dataStr = JSON.stringify(resp.data);
+        if (dataStr.includes('reserve') || dataStr.includes('pool') || dataStr.includes('liquidity')) {
+          console.log(`     Found potential pool data in: ${resp.url.substring(0, 60)}...`);
+          console.log(`     Data snippet: ${dataStr.substring(0, 200)}...`);
+        }
+      }
+    }
+    
+    console.log('\n🔍 Extracting asset data...');
     
     // Extract all asset data
     const assets = await page.evaluate(() => {

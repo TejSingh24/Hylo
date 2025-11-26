@@ -241,11 +241,15 @@ export async function scrapeAllExponentAssets() {
     let leverageTime = null;
     let impliedYieldTime = null;
     let skeletonTime = null;
+    let checkRunning = false;
     
     console.log('⏳ Waiting for asset data to appear...');
     
     // Monitor conditions continuously
-    const checkInterval = setInterval(async () => {
+    const checkStatus = async () => {
+      if (checkRunning) return;
+      checkRunning = true;
+      
       try {
         const status = await page.evaluate(() => {
           const bodyText = document.body.innerText;
@@ -289,7 +293,11 @@ export async function scrapeAllExponentAssets() {
       } catch (e) {
         // Ignore errors during checking
       }
-    }, 1000);
+      
+      checkRunning = false;
+    };
+    
+    const checkInterval = setInterval(() => checkStatus(), 1000);
     
     // Wait for all conditions to be met
     try {
@@ -309,7 +317,7 @@ export async function scrapeAllExponentAssets() {
       
       clearInterval(checkInterval);
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`✅ All data loaded in ${totalTime}s`);
+      console.log(`✅ All data loaded in ${totalTime}s (from Exponent page load)`);
     } catch (e) {
       clearInterval(checkInterval);
       console.warn('⚠️  Timeout waiting for data, proceeding with extraction anyway...');

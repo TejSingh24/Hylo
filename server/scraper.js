@@ -67,7 +67,7 @@ export function calculateMaturesIn(maturityUTC) {
  * @param {string} lastUpdated - Current timestamp
  * @returns {number|null} - Days until maturity as decimal (e.g., 23.417)
  */
-function calculateDaysToMaturity(maturity, lastUpdated) {
+export function calculateDaysToMaturity(maturity, lastUpdated) {
   if (!maturity || !lastUpdated) return null;
   
   try {
@@ -175,6 +175,43 @@ function calculateYtPrice(maturity, yieldRate, lastUpdated) {
 }
 
 /**
+ * Calculate YT price using Exponent formula: (r × T) / (1 + r × T)
+ * @param {string} maturity - Maturity date in UTC format
+ * @param {number} yieldRate - Yield rate as percentage (e.g., 78.0)
+ * @param {string} lastUpdated - Timestamp when data was fetched
+ * @returns {number|null} - YT price with adaptive precision, or null if invalid
+ */
+function calculateYtPriceExponent(maturity, yieldRate, lastUpdated) {
+  if (!maturity || yieldRate === null || yieldRate === undefined || !lastUpdated) {
+    return null;
+  }
+  
+  try {
+    const maturityDate = new Date(maturity);
+    const updatedDate = new Date(lastUpdated);
+    
+    if (isNaN(maturityDate.getTime()) || isNaN(updatedDate.getTime())) {
+      return null;
+    }
+    
+    const diffMs = maturityDate.getTime() - updatedDate.getTime();
+    
+    if (diffMs <= 0) return 0; // Maturity passed
+    
+    const T = diffMs / (365 * 24 * 60 * 60 * 1000); // Years
+    const r = yieldRate / 100; // Convert percentage to decimal
+    
+    // Exponent Formula: (r × T) / (1 + r × T)
+    const ytPrice = (r * T) / (1 + (r * T));
+    
+    return formatYtPrice(ytPrice);
+  } catch (error) {
+    console.warn(`Error calculating Exponent YT price:`, error.message);
+    return null;
+  }
+}
+
+/**
  * Calculate all YT-related metrics for an asset
  * @param {string} maturity - Maturity date
  * @param {number} impliedYield - Implied yield percentage
@@ -185,14 +222,15 @@ function calculateYtPrice(maturity, yieldRate, lastUpdated) {
  * @param {number} apy - Annual Percentage Yield
  * @param {number} maturityDays - Days until maturity
  * @param {number} assetBoost - Asset boost multiplier
+ * @param {string} source - Data source ('ratex' or 'exponent')
  * @returns {Object} All YT metrics (prices, upside, downside, decay, end-day, recovery, points)
  */
-export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated, leverage, apy, maturityDays, assetBoost) {
+export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUpper, lastUpdated, leverage, apy, maturityDays, assetBoost, source = 'ratex') {
   const result = {
     ytPriceCurrent: null,
     ytPriceLower: null,
     ytPriceUpper: null,
-    upsidePotential: null,
+    dailyYieldRate: null,
     downsideRisk: null,
     endDayCurrentYield: null,
     endDayLowerYield: null,
@@ -215,7 +253,7 @@ export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUppe
         ytPriceCurrent: 0,
         ytPriceLower: 0,
         ytPriceUpper: 0,
-        upsidePotential: 0,
+        dailyYieldRate: 0,
         downsideRisk: 0,
         endDayCurrentYield: 0,
         endDayLowerYield: 0,
@@ -228,17 +266,23 @@ export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUppe
     
     const currentT = diffMs / (365 * 24 * 60 * 60 * 1000); // Years
     
-    // Calculate YT prices
-    result.ytPriceCurrent = calculateYtPrice(maturity, impliedYield, lastUpdated);
-    result.ytPriceLower = calculateYtPrice(maturity, rangeLower, lastUpdated);
-    result.ytPriceUpper = calculateYtPrice(maturity, rangeUpper, lastUpdated);
+    // Choose YT price calculation function based on source
+    const calculatePrice = source === 'exponent' ? calculateYtPriceExponent : calculateYtPrice;
     
-    // Calculate upside/downside (only if all prices available)
-    if (result.ytPriceCurrent && result.ytPriceUpper) {
-      const upside = ((result.ytPriceUpper - result.ytPriceCurrent) / result.ytPriceCurrent) * 100;
-      result.upsidePotential = formatPercentage(upside);
+    // Calculate YT prices
+    result.ytPriceCurrent = calculatePrice(maturity, impliedYield, lastUpdated);
+    result.ytPriceLower = calculatePrice(maturity, rangeLower, lastUpdated);
+    result.ytPriceUpper = calculatePrice(maturity, rangeUpper, lastUpdated);
+    
+    // Calculate Daily Yield Rate
+    if (leverage !== null && leverage !== undefined && apy !== null && apy !== undefined) {
+      const apyDecimal = apy / 100;
+      const feeMultiplier = source === 'exponent' ? 0.945 : 0.95;
+      const dailyYield = leverage * (Math.pow(1 + apyDecimal, 1/365) - 1) * 100 * feeMultiplier;
+      result.dailyYieldRate = formatPercentage(dailyYield);
     }
     
+    // Calculate downside risk
     if (result.ytPriceCurrent && result.ytPriceLower) {
       const downside = ((result.ytPriceCurrent - result.ytPriceLower) / result.ytPriceCurrent) * 100;
       result.downsideRisk = formatPercentage(downside);
@@ -254,12 +298,24 @@ export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUppe
     
     // Daily decay rate (time decay with constant yield)
     if (impliedYield !== null && impliedYield !== undefined) {
-      const tomorrowT = currentT - (1/365);
-      const r = impliedYield / 100;
-      const ytToday = 1 - Math.pow(1 + r, -currentT);
-      const ytTomorrow = 1 - Math.pow(1 + r, -tomorrowT);
-      const decay = ((ytToday - ytTomorrow) / ytToday) * 100;
-      result.dailyDecayRate = formatPercentage(decay);
+      if (source === 'exponent') {
+        // Use Exponent formula for tomorrow's price
+        const tomorrowDate = new Date(new Date(lastUpdated).getTime() + 24 * 60 * 60 * 1000);
+        const ytToday = result.ytPriceCurrent;
+        const ytTomorrow = calculateYtPriceExponent(maturity, impliedYield, tomorrowDate.toISOString());
+        if (ytToday && ytTomorrow) {
+          const decay = ((ytToday - ytTomorrow) / ytToday) * 100;
+          result.dailyDecayRate = formatPercentage(decay);
+        }
+      } else {
+        // RateX formula
+        const tomorrowT = currentT - (1/365);
+        const r = impliedYield / 100;
+        const ytToday = 1 - Math.pow(1 + r, -currentT);
+        const ytTomorrow = 1 - Math.pow(1 + r, -tomorrowT);
+        const decay = ((ytToday - ytTomorrow) / ytToday) * 100;
+        result.dailyDecayRate = formatPercentage(decay);
+      }
     }
     
     // End-day scenarios: 1 day left with different yield scenarios
@@ -289,7 +345,9 @@ export function calculateYtMetrics(maturity, impliedYield, rangeLower, rangeUppe
     if (leverage !== null && leverage !== undefined && apy !== null && apy !== undefined && daysToUse !== null && daysToUse !== undefined && daysToUse > 0) {
       const apyDecimal = apy / 100; // Convert percentage to decimal
       const grossYield = leverage * (Math.pow(1 + apyDecimal, 1/365) - 1) * 365 * (daysToUse/365) * 100;
-      const netYield = grossYield * 0.995; // Platform takes 0.5% of yield
+      // Platform fees: RateX takes 5%, Exponent takes 5.5%
+      const feeMultiplier = source === 'exponent' ? 0.945 : 0.95;
+      const netYield = grossYield * feeMultiplier;
       result.expectedRecoveryYield = formatPercentage(netYield);
     }
     
@@ -676,6 +734,7 @@ export async function scrapeAllAssets() {
               assetBoost: null,
               ratexBoost: null,
               impliedYield: null,
+              source: 'ratex',           // Source platform identifier
               
               // Visual assets from card (extracted in Phase 1)
               projectBackgroundImage: null,
@@ -881,7 +940,7 @@ export async function scrapeDetailPage(page, fullAssetName) {
 export async function scrapeDetailPageWithRetry(page, fullAssetName, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`    Attempt ${attempt}/${maxRetries}...`);
+      console.log(`    [RateX] Attempt ${attempt}/${maxRetries}...`);
       const detailData = await scrapeDetailPage(page, fullAssetName);
       
       // Validate that we got at least some data
@@ -891,10 +950,10 @@ export async function scrapeDetailPageWithRetry(page, fullAssetName, maxRetries 
         throw new Error('No valid data extracted from detail page');
       }
     } catch (error) {
-      console.warn(`    Attempt ${attempt} failed:`, error.message);
+      console.warn(`    [RateX] Attempt ${attempt} failed:`, error.message);
       
       if (attempt < maxRetries) {
-        console.log(`    Retrying in 2 seconds...`);
+        console.log(`    [RateX] Retrying in 2 seconds...`);
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
@@ -924,6 +983,7 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
       asset.rangeLower = detailData.rangeLower;
       asset.rangeUpper = detailData.rangeUpper;
       asset.maturity = detailData.maturity;
+      asset.maturityDays = Math.floor(calculateDaysToMaturity(asset.maturity, lastUpdated));
       asset.maturesIn = detailData.maturesIn;
       
       // Note: projectBackgroundImage, projectName, and assetSymbolImage 
@@ -1006,6 +1066,308 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
   }
   
   console.log('✅ Phase 2 complete');
+  return assets;
+}
+
+/**
+ * Convert fullAssetName to Exponent detail page URL slug
+ * @param {string} fullAssetName - e.g., "YT-eUSX-11MAR26" or "YT-hyloSOL+-15DEC25"
+ * @returns {string} - e.g., "eusx-11Mar26" or "hylosolplus-15Dec25"
+ */
+function assetNameToUrlSlug(fullAssetName) {
+  const withoutPrefix = fullAssetName.replace(/^YT-/i, '');
+  const lastDashIndex = withoutPrefix.lastIndexOf('-');
+  let baseAsset = withoutPrefix.substring(0, lastDashIndex).toLowerCase();
+  const dateStr = withoutPrefix.substring(lastDashIndex + 1);
+  
+  baseAsset = baseAsset
+    .replace(/\+/g, 'plus')
+    .replace(/\*/g, 'star');
+  
+  const day = dateStr.substring(0, 2);
+  const month = dateStr.substring(2, 5);
+  const year = dateStr.substring(5, 7);
+  
+  const formattedDate = day + month.charAt(0).toUpperCase() + month.substring(1).toLowerCase() + year;
+  
+  return `${baseAsset}-${formattedDate}`;
+}
+
+/**
+ * Scrape Exponent detail pages for Phase 2 data
+ * @param {Object} page - Puppeteer page instance
+ * @param {Array} assets - Array of Exponent assets from Phase 1
+ * @param {Object} existingGistData - Existing Gist data for fallback
+ * @returns {Promise<Array>} Assets with Phase 2 data
+ */
+export async function scrapeExponentDetailPages(page, assets, existingGistData) {
+  console.log(`\n🔍 Scraping ${assets.length} Exponent detail pages...`);
+  const lastUpdated = new Date().toISOString();
+  
+  for (const asset of assets) {
+    try {
+      console.log(`\n📄 Processing ${asset.asset}...`);
+      
+      const baseSlug = assetNameToUrlSlug(asset.asset);
+      const urlVariations = [
+        `https://www.exponent.finance/farm/${baseSlug}`,
+        `https://www.exponent.finance/farm/${baseSlug}-1`,
+        `https://www.exponent.finance/farm/${baseSlug}-2`,
+        `https://www.exponent.finance/farm/${baseSlug}-3`
+      ];
+      
+      let detailData = null;
+      let attemptNumber = 1;
+      let startTime = null; // Define in outer scope to avoid ReferenceError
+      
+      for (const url of urlVariations) {
+        try {
+          console.log(`    [Exponent] Attempt ${attemptNumber}/${urlVariations.length}...`);
+          attemptNumber++;
+          startTime = Date.now();
+          
+          const response = await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000
+          });
+          
+          if (response.status() === 404) {
+            console.log(`      ↳ URL returned 404, trying next variation`);
+            continue;
+          }
+          
+          await page.waitForTimeout(2000);
+          
+          // Always click Details tab
+          const detailsElements = await page.$x("//button[contains(text(), 'Details')] | //div[contains(text(), 'Details')]");
+          if (detailsElements.length === 0) {
+            throw new Error('Details tab button not found');
+          }
+          
+          await detailsElements[0].click();
+          console.log(`      ↳ Clicked Details tab, waiting for content...`);
+          
+          // Wait for Details content to load (check every 1s, max 5s)
+          let detailsLoaded = false;
+          for (let i = 0; i < 5; i++) {
+            await page.waitForTimeout(1000);
+            detailsLoaded = await page.evaluate(() => {
+              const bodyText = document.body.innerText || document.body.textContent || '';
+              return bodyText.includes('This market expires on');
+            });
+            if (detailsLoaded) {
+              console.log(`      ↳ Details content loaded in ${i + 1}s`);
+              break;
+            }
+          }
+          
+          if (!detailsLoaded) {
+            throw new Error('Details tab content did not load after 5s');
+          }
+          
+          // Extract maturity and assetBoost from Details tab
+          detailData = await page.evaluate((assetName) => {
+            const bodyText = document.body.innerText || document.body.textContent || '';
+            
+            const result = {
+              assetBoost: null,
+              maturity: null,
+              debugInfo: null  // For debugging
+            };
+            
+            const baseAssetMatch = assetName.match(/^(YT-[A-Za-z0-9*+\-]+?)-\d{2}[A-Z]{3}\d{2}$/i);
+            if (!baseAssetMatch) {
+              result.debugInfo = `Asset name pattern didn't match: ${assetName}`;
+              return result;
+            }
+            
+            const baseAsset = baseAssetMatch[1];
+            
+            // Extract maturity - handle timezone variations (GMT+5:30 or GMT+0)
+            const fullMaturityPattern = /This market expires on ([A-Za-z]+\s+\d+,\s+\d{4})\s+at\s+(\d{1,2}:\d{2}\s+[AP]M)\s*\.?\s*(GMT[+-]\d{1,2}(?::\d{2})?)/i;
+            const fullMatch = bodyText.match(fullMaturityPattern);
+            
+            const simpleMaturityPattern = /This market expires on (\d{1,2})\s+([A-Za-z]{3})\s+(\d{2})/i;
+            const simpleMatch = bodyText.match(simpleMaturityPattern);
+            
+            if (fullMatch) {
+              const datePart = fullMatch[1];
+              const timePart = fullMatch[2];
+              const timezone = fullMatch[3];
+              
+              result.maturityRaw = `${datePart} at ${timePart} ${timezone}`;
+              
+              const dateMatch = datePart.match(/([A-Za-z]+)\s+(\d+),\s+(\d{4})/);
+              const timeMatch = timePart.match(/(\d{1,2}):(\d{2})\s+([AP]M)/i);
+              
+              if (dateMatch && timeMatch) {
+                const monthNames = {
+                  'january': '01', 'february': '02', 'march': '03', 'april': '04',
+                  'may': '05', 'june': '06', 'july': '07', 'august': '08',
+                  'september': '09', 'october': '10', 'november': '11', 'december': '12'
+                };
+                
+                const monthStr = monthNames[dateMatch[1].toLowerCase()];
+                const day = dateMatch[2].padStart(2, '0');
+                const year = dateMatch[3];
+                let hours = parseInt(timeMatch[1]);
+                const minutes = timeMatch[2];
+                const ampm = timeMatch[3].toUpperCase();
+                
+                if (ampm === 'PM' && hours !== 12) hours += 12;
+                if (ampm === 'AM' && hours === 12) hours = 0;
+                
+                const tzMatch = timezone.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+                if (tzMatch) {
+                  const tzSign = tzMatch[1];
+                  const tzHours = parseInt(tzMatch[2]);
+                  const tzMinutes = tzMatch[3] ? parseInt(tzMatch[3]) : 0; // Default to 0 if no minutes
+                  const tzOffsetMinutes = (tzSign === '+' ? -1 : 1) * (tzHours * 60 + tzMinutes);
+                  
+                  const localDate = new Date(`${year}-${monthStr}-${day}T${hours.toString().padStart(2, '0')}:${minutes}:00`);
+                  const utcDate = new Date(localDate.getTime() + tzOffsetMinutes * 60000);
+                  
+                  result.maturity = `${utcDate.getUTCFullYear()}-${(utcDate.getUTCMonth() + 1).toString().padStart(2, '0')}-${utcDate.getUTCDate().toString().padStart(2, '0')} ${utcDate.getUTCHours().toString().padStart(2, '0')}:${utcDate.getUTCMinutes().toString().padStart(2, '0')}:00 UTC`;
+                }
+              }
+            } else if (simpleMatch) {
+              const day = simpleMatch[1].padStart(2, '0');
+              const monthAbbr = simpleMatch[2];
+              const yearShort = simpleMatch[3];
+              
+              const monthMap = {
+                'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+                'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+                'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+              };
+              
+              const monthStr = monthMap[monthAbbr.toLowerCase()];
+              const year = '20' + yearShort;
+              
+              if (monthStr) {
+                const hours = 10;
+                const minutes = '30';
+                const tzOffsetMinutes = -(5 * 60 + 30);
+                
+                const localDate = new Date(`${year}-${monthStr}-${day}T${hours}:${minutes}:00`);
+                const utcDate = new Date(localDate.getTime() + tzOffsetMinutes * 60000);
+                
+                result.maturity = `${utcDate.getUTCFullYear()}-${(utcDate.getUTCMonth() + 1).toString().padStart(2, '0')}-${utcDate.getUTCDate().toString().padStart(2, '0')} ${utcDate.getUTCHours().toString().padStart(2, '0')}:${utcDate.getUTCMinutes().toString().padStart(2, '0')}:00 UTC`;
+              }
+            }
+            
+            // Extract assetBoost
+            const escapedBaseAsset = baseAsset.replace(/[+*]/g, '\\$&');
+            const boostPattern = new RegExp(`${escapedBaseAsset}\\s+\\w+\\s+(\\d+)x\\s+([^.\\n]+)`, 'i');
+            const boostMatch = bodyText.match(boostPattern);
+            
+            if (boostMatch) {
+              result.assetBoost = parseInt(boostMatch[1]);
+            }
+            
+            return result;
+          }, asset.asset);
+          
+          // Debug logging
+          if (detailData && detailData.debugInfo) {
+            console.log(`      ↳ Debug: ${detailData.debugInfo}`);
+          }
+          if (detailData && !detailData.maturity && !detailData.debugInfo) {
+            // Extract a snippet of text around "expires" to see the actual format
+            const bodySnippet = await page.evaluate(() => {
+              const text = document.body.innerText;
+              const idx = text.indexOf('expires');
+              if (idx !== -1) {
+                return text.substring(Math.max(0, idx - 50), Math.min(text.length, idx + 150));
+              }
+              return 'Text "expires" not found';
+            });
+            console.log(`      ↳ Extraction failed: maturity=${detailData.maturity}, assetBoost=${detailData.assetBoost}`);
+            console.log(`      ↳ Text snippet: "${bodySnippet}"`);
+          }
+          
+          if (detailData && detailData.maturity) {
+            // Update asset with Phase 2 data
+            asset.maturity = detailData.maturity;
+            asset.maturityDays = Math.floor(calculateDaysToMaturity(asset.maturity, lastUpdated));
+            asset.maturesIn = calculateMaturesIn(asset.maturity);
+            
+            // Always update assetBoost if we got it from detail page
+            if (detailData.assetBoost) {
+              asset.assetBoost = detailData.assetBoost;
+            }
+            
+            // Set Exponent-specific ranges
+            asset.rangeLower = asset.apy;
+            asset.rangeUpper = null;
+            
+            // Recalculate YT metrics with Exponent formula
+            const ytMetrics = calculateYtMetrics(
+              asset.maturity,
+              asset.impliedYield,
+              asset.rangeLower,
+              asset.rangeUpper,
+              lastUpdated,
+              asset.leverage,
+              asset.apy,
+              asset.maturityDays,
+              asset.assetBoost,
+              'exponent'
+            );
+            
+            Object.assign(asset, ytMetrics);
+            
+            console.log(`  ✅ ${asset.asset}: Maturity ${asset.maturity}, Boost ${asset.assetBoost}x, YT Current ${ytMetrics.ytPriceCurrent}`);
+            
+            break;
+          }
+        } catch (urlError) {
+          const elapsedTime = startTime ? ((Date.now() - startTime) / 1000).toFixed(1) : '0.0';
+          console.warn(`  ⚠️ Failed at ${elapsedTime}s - ${urlError.message}`);
+          continue;
+        }
+      }
+      
+      if (!detailData || !detailData.maturity) {
+        // Use OLD gist data if detail scraping failed
+        console.warn(`  ⚠️ Failed to fetch ${asset.asset}, using fallback data`);
+        
+        const oldAsset = existingGistData[asset.asset];
+        if (oldAsset && oldAsset.maturity) {
+          asset.maturity = oldAsset.maturity;
+          asset.maturityDays = Math.floor(calculateDaysToMaturity(asset.maturity, lastUpdated));
+          asset.maturesIn = calculateMaturesIn(asset.maturity);
+          asset.rangeLower = asset.apy;
+          asset.rangeUpper = null;
+          
+          if (oldAsset.assetBoost) {
+            asset.assetBoost = oldAsset.assetBoost;
+          }
+          
+          const ytMetrics = calculateYtMetrics(
+            asset.maturity,
+            asset.impliedYield,
+            asset.rangeLower,
+            asset.rangeUpper,
+            lastUpdated,
+            asset.leverage,
+            asset.apy,
+            asset.maturityDays,
+            asset.assetBoost,
+            'exponent'
+          );
+          
+          Object.assign(asset, ytMetrics);
+          console.log(`  📊 Using cached data for ${asset.asset}`);
+        }
+      }
+      
+    } catch (error) {
+      console.error(`  ❌ Error processing ${asset.asset}:`, error.message);
+    }
+  }
+  
+  console.log('✅ Exponent Phase 2 complete');
   return assets;
 }
 

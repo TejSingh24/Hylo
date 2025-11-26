@@ -1,4 +1,5 @@
 import { scrapeAllAssets } from './scraper.js';
+import { scrapeAllExponentAssets } from './scraper-exponent.js';
 import express from 'express';
 import cors from 'cors';
 
@@ -46,21 +47,60 @@ async function updateGist(gistId, data, token) {
 
 async function scrapeAndUpdate() {
   try {
-    console.log('🚀 Starting RateX scraper...');
+    console.log('🚀 Starting RateX + Exponent scraper...');
     console.log(`⏰ Time: ${new Date().toISOString()}`);
     
-    // Scrape all assets
-    console.log('📊 Scraping RateX assets...');
-    const assets = await scrapeAllAssets();
+    // Scrape both platforms in parallel
+    console.log('📊 Scraping RateX + Exponent (Phase 1)...');
+    const [ratexAssets, exponentAssets] = await Promise.all([
+      scrapeAllAssets(),
+      scrapeAllExponentAssets() // No validation yet
+    ]);
     
-    console.log(`✅ Successfully scraped ${assets.length} assets`);
-    console.log('Assets:', assets.map(a => a.asset).join(', '));
+    console.log(`✅ RateX: ${ratexAssets.length} assets`);
+    console.log(`✅ Exponent: ${exponentAssets.length} assets`);
+    
+    // Apply APY and assetBoost validation in-memory (no re-scraping!)
+    console.log('🔄 Applying APY and assetBoost validation...');
+    const ratexMap = new Map(
+      ratexAssets.map(asset => [asset.baseAsset.toLowerCase(), asset])
+    );
+    
+    let apyValidatedCount = 0;
+    let boostValidatedCount = 0;
+    exponentAssets.forEach(exponentAsset => {
+      const ratexMatch = ratexMap.get(exponentAsset.baseAsset.toLowerCase());
+      if (ratexMatch) {
+        // Update APY if RateX has it
+        if (ratexMatch.apy !== null) {
+          console.log(`  ✓ ${exponentAsset.asset}: APY ${exponentAsset.apy}% → ${ratexMatch.apy}%`);
+          exponentAsset.apy = ratexMatch.apy;
+          apyValidatedCount++;
+        }
+        
+        // Update assetBoost if RateX has it
+        if (ratexMatch.assetBoost !== null) {
+          console.log(`  ✓ ${exponentAsset.asset}: assetBoost ${exponentAsset.assetBoost}x → ${ratexMatch.assetBoost}x`);
+          exponentAsset.assetBoost = ratexMatch.assetBoost;
+          boostValidatedCount++;
+        }
+      }
+    });
+    
+    console.log(`✅ APY validation: ${apyValidatedCount}/${exponentAssets.length} assets updated`);
+    console.log(`✅ assetBoost validation: ${boostValidatedCount}/${exponentAssets.length} assets updated`);
+    
+    // Merge assets from both platforms
+    const allAssets = [...ratexAssets, ...exponentAssets];
+    
+    console.log(`✅ Successfully scraped ${allAssets.length} total assets (${ratexAssets.length} RateX + ${exponentAssets.length} Exponent)`);
+    console.log('Assets:', allAssets.map(a => `${a.asset} (${a.source})`).join(', '));
     
     // Add timestamp to data
     const dataWithTimestamp = {
       lastUpdated: new Date().toISOString(),
-      assetsCount: assets.length,
-      assets: assets
+      assetsCount: allAssets.length,
+      assets: allAssets
     };
     
     // Update Gist

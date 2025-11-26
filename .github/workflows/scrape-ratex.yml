@@ -15,7 +15,7 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # Each scrape should finish in 10 minutes max
+    timeout-minutes: 15  # Increased for Phase 2 parallel scraping (RateX + Exponent)
     
     steps:
       - name: Checkout code
@@ -38,6 +38,15 @@ jobs:
         env:
           GIST_ID: d3a1db6fc79e168cf5dff8d3a2c11706
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+      
+      - name: Upload debug screenshots (if any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots
+          path: /tmp/exponent-*.png
+          if-no-files-found: ignore
+          retention-days: 7
       
       - name: Show completion
         run: echo "✅ Scraped and updated Gist at $(date)"

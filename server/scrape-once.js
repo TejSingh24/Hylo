@@ -1,4 +1,5 @@
-import { scrapeAllAssets, scrapeDetailPages, fetchExistingGistData, calculateMaturesIn, calculateYtMetrics } from './scraper.js';
+import { scrapeAllAssets, scrapeDetailPages, scrapeExponentDetailPages, fetchExistingGistData, calculateMaturesIn, calculateYtMetrics, calculateDaysToMaturity } from './scraper.js';
+import { scrapeAllExponentAssets } from './scraper-exponent.js';
 import puppeteerCore from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import { chmod } from 'fs/promises';
@@ -68,41 +69,193 @@ async function main() {
       ignoreHTTPSErrors: true,
     });
     
-    const page = await browser.newPage();
+    // ========== PHASE 1: Scrape Cards Page (PARALLEL) ==========
+    console.log('\n🚀 PHASE 1: Scraping RateX and Exponent in parallel...');
     
-    // ========== PHASE 1: Scrape Cards Page ==========
-    console.log('\n🚀 PHASE 1: Scraping cards page...');
-    const cardsData = await scrapeAllAssets();
+    // Run scrapers in parallel for speed
+    const [ratexData, exponentData] = await Promise.all([
+      scrapeAllAssets(),
+      scrapeAllExponentAssets()
+    ]);
     
-    // Merge with existing Gist data (preserve range/maturity)
-    console.log('\n🔀 Merging with existing data and calculating YT metrics...');
+    console.log(`✅ RateX: ${ratexData.length} assets`);
+    console.log(`✅ Exponent: ${exponentData.length} assets`);
+    
+    // Debug: Check hyloSOL leverage and impliedYield from Phase 1 scraping
+    const ratexHyloSOL = ratexData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('2511'));
+    const exponentHyloSOL = exponentData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('10DEC'));
+    console.log('\n🔍 DEBUG - Phase 1 Scraped Values:');
+    if (ratexHyloSOL) {
+      console.log(`   RateX hyloSOL-2511: leverage=${ratexHyloSOL.leverage}, impliedYield=${ratexHyloSOL.impliedYield}, apy=${ratexHyloSOL.apy}`);
+    }
+    if (exponentHyloSOL) {
+      console.log(`   Exponent YT-hyloSOL-10DEC25: leverage=${exponentHyloSOL.leverage}, impliedYield=${exponentHyloSOL.impliedYield}, apy=${exponentHyloSOL.apy}`);
+    }
+    
+    // Apply APY and assetBoost validation in-memory (no re-scraping!)
+    console.log('\n🔄 Applying APY, assetBoost, visual assets, and YT metrics validation...');
+    const ratexMap = new Map(
+      ratexData.map(asset => [asset.baseAsset.toLowerCase(), asset])
+    );
+    
+    let apyValidatedCount = 0;
+    let boostValidatedCount = 0;
+    let visualAssetsCount = 0;
+    let rangeLowerCount = 0;
+    let ytMetricsCount = 0;
+    
+    exponentData.forEach(exponentAsset => {
+      const ratexMatch = ratexMap.get(exponentAsset.baseAsset.toLowerCase());
+      const oldAsset = existingGistData[exponentAsset.asset];
+      
+      // Update APY if RateX has it (more reliable)
+      if (ratexMatch && ratexMatch.apy !== null) {
+        console.log(`  ✓ ${exponentAsset.asset}: Overriding APY ${exponentAsset.apy}% → ${ratexMatch.apy}%`);
+        exponentAsset.apy = ratexMatch.apy;
+        apyValidatedCount++;
+      }
+      
+      // Asset Boost Priority: OLD Gist → RateX match → null
+      if (oldAsset && oldAsset.assetBoost !== null) {
+        console.log(`  ✓ ${exponentAsset.asset}: Using OLD gist assetBoost ${oldAsset.assetBoost}x`);
+        exponentAsset.assetBoost = oldAsset.assetBoost;
+        boostValidatedCount++;
+      } else if (ratexMatch && ratexMatch.assetBoost !== null) {
+        console.log(`  ✓ ${exponentAsset.asset}: Using RateX assetBoost ${ratexMatch.assetBoost}x`);
+        exponentAsset.assetBoost = ratexMatch.assetBoost;
+        boostValidatedCount++;
+      }
+      // else: keep null (will be filled in Phase 2)
+      
+      // Visual Assets Priority: RateX match → OLD Gist → null
+      if (ratexMatch && ratexMatch.projectBackgroundImage) {
+        exponentAsset.projectBackgroundImage = ratexMatch.projectBackgroundImage;
+        exponentAsset.projectName = ratexMatch.projectName;
+        exponentAsset.assetSymbolImage = ratexMatch.assetSymbolImage;
+        console.log(`  ✓ ${exponentAsset.asset}: Copied visual assets from RateX (${ratexMatch.projectName})`);
+        visualAssetsCount++;
+      } else if (oldAsset && oldAsset.projectBackgroundImage) {
+        exponentAsset.projectBackgroundImage = oldAsset.projectBackgroundImage;
+        exponentAsset.projectName = oldAsset.projectName;
+        exponentAsset.assetSymbolImage = oldAsset.assetSymbolImage;
+        console.log(`  ✓ ${exponentAsset.asset}: Using OLD gist visual assets (${oldAsset.projectName})`);
+        visualAssetsCount++;
+      }
+      // else: keep null (will be filled in Phase 2)
+      
+      // Maturity Priority: OLD Gist → Asset name calculation
+      if (oldAsset && oldAsset.maturity) {
+        exponentAsset.maturity = oldAsset.maturity;
+        exponentAsset.maturityDays = Math.floor(calculateDaysToMaturity(oldAsset.maturity, new Date().toISOString()));
+        exponentAsset.maturesIn = calculateMaturesIn(oldAsset.maturity);
+      } else if (exponentAsset.maturity) {
+        // Maturity from asset name - recalculate maturesIn to be current
+        exponentAsset.maturityDays = Math.floor(calculateDaysToMaturity(exponentAsset.maturity, new Date().toISOString()));
+        exponentAsset.maturesIn = calculateMaturesIn(exponentAsset.maturity);
+      }
+      // else: no maturity available (shouldn't happen for Exponent assets)
+      
+      // Set rangeLower = apy (Underlying APY) for Phase 1 YT metric calculations
+      if (exponentAsset.apy !== null) {
+        exponentAsset.rangeLower = exponentAsset.apy;
+        rangeLowerCount++;
+      }
+      
+      // Calculate YT metrics in Phase 1 (rangeUpper will be null until Phase 2)
+      if (exponentAsset.maturity && exponentAsset.impliedYield !== null) {
+        const phase1Timestamp = new Date().toISOString();
+        const ytMetrics = calculateYtMetrics(
+          exponentAsset.maturity,
+          exponentAsset.impliedYield,
+          exponentAsset.rangeLower, // = apy
+          null, // rangeUpper not available in Phase 1
+          phase1Timestamp,
+          exponentAsset.leverage,
+          exponentAsset.apy,
+          exponentAsset.maturityDays,
+          exponentAsset.assetBoost,
+          'exponent' // source
+        );
+        
+        // Copy calculated metrics to asset
+        exponentAsset.ytPriceCurrent = ytMetrics.ytPriceCurrent;
+        exponentAsset.ytPriceLower = ytMetrics.ytPriceLower;
+        exponentAsset.ytPriceUpper = ytMetrics.ytPriceUpper; // Will be null
+        exponentAsset.dailyYieldRate = ytMetrics.dailyYieldRate;
+        exponentAsset.downsideRisk = ytMetrics.downsideRisk;
+        exponentAsset.endDayCurrentYield = ytMetrics.endDayCurrentYield;
+        exponentAsset.endDayLowerYield = ytMetrics.endDayLowerYield;
+        exponentAsset.dailyDecayRate = ytMetrics.dailyDecayRate;
+        exponentAsset.expectedRecoveryYield = ytMetrics.expectedRecoveryYield;
+        exponentAsset.expectedPointsPerDay = ytMetrics.expectedPointsPerDay;
+        exponentAsset.totalExpectedPoints = ytMetrics.totalExpectedPoints;
+        
+        ytMetricsCount++;
+        console.log(`  ✓ ${exponentAsset.asset}: Calculated Phase 1 YT metrics (ytPriceCurrent=${ytMetrics.ytPriceCurrent}, downsideRisk=${ytMetrics.downsideRisk})`);
+      }
+    });
+    
+    console.log(`✅ APY validation: ${apyValidatedCount}/${exponentData.length} assets updated`);
+    console.log(`✅ assetBoost validation: ${boostValidatedCount}/${exponentData.length} assets updated`);
+    console.log(`✅ Visual assets: ${visualAssetsCount}/${exponentData.length} assets updated`);
+    console.log(`✅ rangeLower set: ${rangeLowerCount}/${exponentData.length} assets`);
+    console.log(`✅ YT metrics calculated: ${ytMetricsCount}/${exponentData.length} assets`);
+    
+    // Merge RateX + Exponent assets
+    const allAssets = [...ratexData, ...exponentData];
+    console.log(`\n📊 Total combined assets: ${allAssets.length} (${ratexData.length} RateX + ${exponentData.length} Exponent)`);
+    
+    // Merge with existing Gist data and finalize Phase 1
+    console.log('\n🔀 Merging and finalizing Phase 1 data...');
     const phase1Timestamp = new Date().toISOString(); // Single timestamp for all Phase 1 calculations
     
-    const phase1MergedData = cardsData.map(newAsset => {
+    const phase1MergedData = allAssets.map(newAsset => {
       const oldAsset = existingGistData[newAsset.asset];
       
-      // Preserve old detail page data (if exists)
-      const rangeLower = oldAsset?.rangeLower ?? null;
-      const rangeUpper = oldAsset?.rangeUpper ?? null;
-      const maturity = oldAsset?.maturity ?? null;
+      // For RateX assets: calculate YT metrics (they don't have Phase 1 pre-calculation)
+      // For Exponent assets: use pre-calculated values from validation section
+      let ytMetrics;
+      if (newAsset.source === 'ratex') {
+        // RateX: Use old gist ranges or calculate with fresh data
+        const rangeLower = oldAsset?.rangeLower ?? null;
+        const rangeUpper = oldAsset?.rangeUpper ?? null;
+        const maturity = oldAsset?.maturity ?? null;
+        
+        ytMetrics = calculateYtMetrics(
+          maturity,
+          newAsset.impliedYield,
+          rangeLower,
+          rangeUpper,
+          phase1Timestamp,
+          newAsset.leverage,
+          newAsset.apy,
+          newAsset.maturityDays,
+          newAsset.assetBoost,
+          'ratex'
+        );
+      } else {
+        // Exponent: Use pre-calculated Phase 1 metrics from validation section
+        ytMetrics = {
+          ytPriceCurrent: newAsset.ytPriceCurrent ?? null,
+          ytPriceLower: newAsset.ytPriceLower ?? null,
+          ytPriceUpper: newAsset.ytPriceUpper ?? null,
+          dailyYieldRate: newAsset.dailyYieldRate ?? null,
+          downsideRisk: newAsset.downsideRisk ?? null,
+          endDayCurrentYield: newAsset.endDayCurrentYield ?? null,
+          endDayLowerYield: newAsset.endDayLowerYield ?? null,
+          dailyDecayRate: newAsset.dailyDecayRate ?? null,
+          expectedRecoveryYield: newAsset.expectedRecoveryYield ?? null,
+          expectedPointsPerDay: newAsset.expectedPointsPerDay ?? null,
+          totalExpectedPoints: newAsset.totalExpectedPoints ?? null
+        };
+      }
       
-      // Recalculate maturesIn using preserved maturity date
+      // Recalculate maturesIn to be current
+      const maturity = newAsset.maturity ?? oldAsset?.maturity ?? null;
       const maturesIn = maturity ? calculateMaturesIn(maturity) : null;
       
-      // Calculate YT metrics using:
-      // - Fresh: leverage, apy, impliedYield, maturityDays, assetBoost (from cards page)
-      // - Preserved: rangeLower, rangeUpper, maturity (from old Gist)
-      const ytMetrics = calculateYtMetrics(
-        maturity,
-        newAsset.impliedYield,
-        rangeLower,
-        rangeUpper,
-        phase1Timestamp,
-        newAsset.leverage,
-        newAsset.apy,
-        newAsset.maturityDays,
-        newAsset.assetBoost
-      );
+      // Preserve old detail page data (rangeUpper from Phase 2)
+      const rangeUpper = oldAsset?.rangeUpper ?? null;
       
       return {
         // New data from cards (always update these)
@@ -114,23 +267,24 @@ async function main() {
         assetBoost: newAsset.assetBoost,
         ratexBoost: newAsset.ratexBoost,
         impliedYield: newAsset.impliedYield,
+        source: newAsset.source, // 'ratex' or 'exponent'
         
         // Visual assets from Phase 1 (new fields)
         projectBackgroundImage: newAsset.projectBackgroundImage ?? null,
         projectName: newAsset.projectName ?? null,
         assetSymbolImage: newAsset.assetSymbolImage ?? null,
         
-        // Preserved detail page data (if exists)
-        rangeLower: rangeLower,
-        rangeUpper: rangeUpper,
+        // Range and maturity data
+        rangeLower: newAsset.rangeLower ?? oldAsset?.rangeLower ?? null, // For Exponent: set in Phase 1, for RateX: from old gist
+        rangeUpper: rangeUpper, // Only from old gist (Phase 2 data)
         maturity: maturity,
         maturesIn: maturesIn,  // Recalculated to be current
         
-        // Calculated YT metrics (using fresh + preserved data)
+        // Calculated YT metrics
         ytPriceCurrent: ytMetrics.ytPriceCurrent,
         ytPriceLower: ytMetrics.ytPriceLower,
         ytPriceUpper: ytMetrics.ytPriceUpper,
-        upsidePotential: ytMetrics.upsidePotential,
+        dailyYieldRate: ytMetrics.dailyYieldRate,
         downsideRisk: ytMetrics.downsideRisk,
         endDayCurrentYield: ytMetrics.endDayCurrentYield,
         endDayLowerYield: ytMetrics.endDayLowerYield,
@@ -143,8 +297,23 @@ async function main() {
     
     console.log(`✅ Phase 1 complete: ${phase1MergedData.length} assets with calculated metrics`);
     
+    // Debug: Check hyloSOL values after Phase 1 merge
+    const mergedRatexHyloSOL = phase1MergedData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('2511'));
+    const mergedExponentHyloSOL = phase1MergedData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('10DEC'));
+    console.log('\n🔍 DEBUG - Phase 1 Merged Values (before Gist update):');
+    if (mergedRatexHyloSOL) {
+      console.log(`   RateX hyloSOL-2511: leverage=${mergedRatexHyloSOL.leverage}, impliedYield=${mergedRatexHyloSOL.impliedYield}, apy=${mergedRatexHyloSOL.apy}, source=${mergedRatexHyloSOL.source}`);
+    }
+    if (mergedExponentHyloSOL) {
+      console.log(`   Exponent YT-hyloSOL-10DEC25: leverage=${mergedExponentHyloSOL.leverage}, impliedYield=${mergedExponentHyloSOL.impliedYield}, apy=${mergedExponentHyloSOL.apy}, source=${mergedExponentHyloSOL.source}`);
+    }
+    
     // ========== Update Gist (Phase 1) ==========
     console.log('\n📤 Updating Gist with Phase 1 data...');
+    const ratexCount = phase1MergedData.filter(a => a.source === 'ratex').length;
+    const exponentCount = phase1MergedData.filter(a => a.source === 'exponent').length;
+    console.log(`   📊 Gist will contain: ${ratexCount} RateX + ${exponentCount} Exponent = ${phase1MergedData.length} total`);
+    
     const phase1GistData = {
       lastUpdated: phase1Timestamp,
       phase: 1,
@@ -155,16 +324,94 @@ async function main() {
     await updateGist(GIST_ID, phase1GistData, GIST_TOKEN);
     console.log('✅ Phase 1 Gist updated - Frontend can use calculator now!');
     
-    // ========== PHASE 2: Scrape Detail Pages ==========
-    const phase2Data = await scrapeDetailPages(page, phase1MergedData, existingGistData);
+    // ========== PHASE 2: Scrape Detail Pages (Hylo Priority + Parallel) ==========
+    console.log('\n🚀 Starting Phase 2: Hylo assets first, then remaining (parallel)...');
+    
+    // Filter Hylo assets by projectName (for RateX) and matching baseAsset (for Exponent)
+    const ratexAssets = phase1MergedData.filter(a => a.source === 'ratex');
+    const exponentAssets = phase1MergedData.filter(a => a.source === 'exponent');
+    
+    // RateX Hylo assets filtered by projectName
+    const ratexHylo = ratexAssets.filter(a => a.projectName === 'Hylo');
+    
+    // Exponent Hylo assets: match baseAsset with RateX Hylo assets
+    const hyloBaseAssets = ratexHylo.map(a => a.baseAsset.toLowerCase());
+    const exponentHylo = exponentAssets.filter(a => hyloBaseAssets.includes(a.baseAsset.toLowerCase()));
+    
+    // Remaining (non-Hylo) assets
+    const ratexOthers = ratexAssets.filter(a => a.projectName !== 'Hylo');
+    const exponentOthers = exponentAssets.filter(a => !hyloBaseAssets.includes(a.baseAsset.toLowerCase()));
+    
+    console.log(`\n📌 Phase 2A: Scraping Hylo assets first (${ratexHylo.length} RateX + ${exponentHylo.length} Exponent)...`);
+    
+    // Create single page for sequential execution
+    const detailPage = await browser.newPage();
+    
+    // Scrape Hylo assets sequentially (RateX first, then Exponent)
+    console.log('  → Scraping RateX Hylo assets...');
+    const phase2AratexData = await scrapeDetailPages(detailPage, ratexHylo, existingGistData);
+    
+    console.log('  → Scraping Exponent Hylo assets...');
+    const phase2AExponentData = await scrapeExponentDetailPages(detailPage, exponentHylo, existingGistData);
+    
+    const phase2AData = [...phase2AratexData, ...phase2AExponentData];
+    
+    // Merge Phase 2A (Hylo) with Phase 1 data for all assets
+    const phase2AFullData = phase1MergedData.map(asset => {
+      const hyloData = phase2AData.find(h => h.asset === asset.asset);
+      return hyloData || asset; // Use Hylo Phase 2 data if available, otherwise Phase 1
+    });
+    
+    // Update Gist with Hylo data (quick update for frontend)
+    console.log('\n📤 Updating Gist with Hylo data (Phase 2A)...');
+    const phase2ATimestamp = {
+      lastUpdated: new Date().toISOString(),
+      phase: 2,
+      phaseStatus: 'hylo-complete',
+      assetsCount: phase2AFullData.length,
+      assets: phase2AFullData
+    };
+    await updateGist(GIST_ID, phase2ATimestamp, GIST_TOKEN);
+    console.log('✅ Hylo data now live in Gist!');
+    
+    // Scrape remaining assets sequentially
+    console.log(`\n📌 Phase 2B: Scraping remaining assets (${ratexOthers.length} RateX + ${exponentOthers.length} Exponent)...`);
+    
+    console.log('  → Scraping RateX remaining assets...');
+    const phase2BRatexData = await scrapeDetailPages(detailPage, ratexOthers, existingGistData);
+    
+    console.log('  → Scraping Exponent remaining assets...');
+    const phase2BExponentData = await scrapeExponentDetailPages(detailPage, exponentOthers, existingGistData);
+    
+    const phase2BData = [...phase2BRatexData, ...phase2BExponentData];
+    console.log(`\n✅ Phase 2 scraping complete: ${phase2AData.length} Hylo assets + ${phase2BData.length} other assets`);
+    
+    // Merge Phase 2B data back into phase2AFullData (which already has Phase 1 + Phase 2A)
+    const phase2FinalData = phase2AFullData.map(asset => {
+      const phase2BUpdate = phase2BData.find(p => p.asset === asset.asset);
+      return phase2BUpdate || asset; // Use Phase 2B data if available, otherwise keep Phase 2A/Phase 1
+    });
+    
+    console.log(`   📊 Final Gist: ${phase2FinalData.length} total assets (${phase2FinalData.filter(a => a.source === 'ratex').length} RateX + ${phase2FinalData.filter(a => a.source === 'exponent').length} Exponent)`);
+    
+    // Debug: Check hyloSOL values in final Phase 2 data
+    const finalRatexHyloSOL = phase2FinalData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('2511'));
+    const finalExponentHyloSOL = phase2FinalData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('10DEC'));
+    console.log('\n🔍 DEBUG - Phase 2 Final Values (sending to Gist):');
+    if (finalRatexHyloSOL) {
+      console.log(`   RateX hyloSOL-2511: leverage=${finalRatexHyloSOL.leverage}, impliedYield=${finalRatexHyloSOL.impliedYield}, apy=${finalRatexHyloSOL.apy}, source=${finalRatexHyloSOL.source}`);
+    }
+    if (finalExponentHyloSOL) {
+      console.log(`   Exponent YT-hyloSOL-10DEC25: leverage=${finalExponentHyloSOL.leverage}, impliedYield=${finalExponentHyloSOL.impliedYield}, apy=${finalExponentHyloSOL.apy}, source=${finalExponentHyloSOL.source}`);
+    }
     
     // ========== Update Gist (Phase 2) ==========
-    console.log('\n� Updating Gist with Phase 2 data...');
+    console.log('\n📤 Updating Gist with Phase 2 complete data...');
     const phase2Timestamp = {
       lastUpdated: new Date().toISOString(),
       phase: 2,
-      assetsCount: phase2Data.length,
-      assets: phase2Data
+      assetsCount: phase2FinalData.length,
+      assets: phase2FinalData
     };
     
     await updateGist(GIST_ID, phase2Timestamp, GIST_TOKEN);

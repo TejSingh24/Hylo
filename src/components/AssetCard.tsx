@@ -71,9 +71,12 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
   };
 
   // Calculate price range (without $ symbol)
-  const priceRange = asset.ytPriceLower !== null && asset.ytPriceUpper !== null
-    ? `${formatPrice(asset.ytPriceLower)} - ${formatPrice(asset.ytPriceUpper)}`
-    : 'N/A';
+  const priceRange = 
+    asset.ytPriceLower !== null && asset.ytPriceLower > 0 && asset.ytPriceUpper !== null && asset.ytPriceUpper > 0
+      ? `${formatPrice(asset.ytPriceLower)} - ${formatPrice(asset.ytPriceUpper)}`
+      : asset.ytPriceLower !== null && asset.ytPriceLower > 0
+        ? `${formatPrice(asset.ytPriceLower)} - N/A`
+        : 'N/A';
 
   return (
     <div 
@@ -113,21 +116,29 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
           </div>
         </div>
         
-        <div className="asset-badges">
-          {asset.assetBoost !== null && (
-            <div className="badge badge-asset">
-              <AssetBoostIcon size={14} />
-              <span>{asset.assetBoost}×</span>
-              <span className="badge-label">Asset</span>
+        <div className="source-and-boost-badges">
+          <div className="source-badge-container">
+            <div className={`badge badge-source ${asset.source === 'ratex' ? 'badge-source-ratex' : 'badge-source-exponent'}`}>
+              <span className="badge-label">{asset.source === 'ratex' ? 'Rate-X' : 'Exponent'}</span>
             </div>
-          )}
-          {asset.ratexBoost !== null && (
-            <div className="badge badge-ratex">
-              <RateXIcon size={14} />
-              <span>{asset.ratexBoost}×</span>
-              <span className="badge-label">RateX</span>
-            </div>
-          )}
+          </div>
+          
+          <div className="asset-badges">
+            {asset.assetBoost !== null && (
+              <div className="badge badge-asset">
+                <AssetBoostIcon size={14} />
+                <span>{asset.assetBoost}×</span>
+                <span className="badge-label">Asset</span>
+              </div>
+            )}
+            {asset.ratexBoost !== null && (
+              <div className="badge badge-ratex">
+                <RateXIcon size={14} />
+                <span>{asset.ratexBoost}×</span>
+                <span className="badge-label">RateX</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -236,9 +247,9 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
 
         <div className="metrics-row-analysis">
           <div className="metric-box-analysis metric-upside">
-            <div className="metric-label-analysis">UPSIDE POTENTIAL</div>
+            <div className="metric-label-analysis">DAILY YIELD RATE</div>
             <div className="metric-value-analysis metric-value-success">
-              {asset.upsidePotential !== null ? `+${formatPercent(asset.upsidePotential, 1)}` : 'N/A'}
+              {formatPercent(asset.dailyYieldRate, 2)}
             </div>
           </div>
 

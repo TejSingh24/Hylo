@@ -264,7 +264,9 @@ async function main() {
       
       // Recalculate maturesIn to be current
       const maturity = newAsset.maturity ?? oldAsset?.maturity ?? null;
-      const maturesIn = maturity ? calculateMaturesIn(maturity) : null;
+      const maturesIn = maturity 
+        ? calculateMaturesIn(maturity)  // If we have maturity date, calculate from it (time-aware)
+        : newAsset.maturesIn ?? null;   // Otherwise preserve Phase 1 calculated maturesIn (from maturityDays)
       
       // Preserve old detail page data (rangeUpper from Phase 2)
       const rangeUpper = oldAsset?.rangeUpper ?? null;

@@ -81,6 +81,17 @@ async function main() {
     console.log(`✅ RateX: ${ratexData.length} assets`);
     console.log(`✅ Exponent: ${exponentData.length} assets`);
     
+    // Debug: Check hyloSOL leverage and impliedYield from Phase 1 scraping
+    const ratexHyloSOL = ratexData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('2511'));
+    const exponentHyloSOL = exponentData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('10DEC'));
+    console.log('\n🔍 DEBUG - Phase 1 Scraped Values:');
+    if (ratexHyloSOL) {
+      console.log(`   RateX hyloSOL-2511: leverage=${ratexHyloSOL.leverage}, impliedYield=${ratexHyloSOL.impliedYield}, apy=${ratexHyloSOL.apy}`);
+    }
+    if (exponentHyloSOL) {
+      console.log(`   Exponent YT-hyloSOL-10DEC25: leverage=${exponentHyloSOL.leverage}, impliedYield=${exponentHyloSOL.impliedYield}, apy=${exponentHyloSOL.apy}`);
+    }
+    
     // Apply APY and assetBoost validation in-memory (no re-scraping!)
     console.log('\n🔄 Applying APY and assetBoost validation...');
     const ratexMap = new Map(
@@ -199,6 +210,17 @@ async function main() {
     
     console.log(`✅ Phase 1 complete: ${phase1MergedData.length} assets with calculated metrics`);
     
+    // Debug: Check hyloSOL values after Phase 1 merge
+    const mergedRatexHyloSOL = phase1MergedData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('2511'));
+    const mergedExponentHyloSOL = phase1MergedData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('10DEC'));
+    console.log('\n🔍 DEBUG - Phase 1 Merged Values (before Gist update):');
+    if (mergedRatexHyloSOL) {
+      console.log(`   RateX hyloSOL-2511: leverage=${mergedRatexHyloSOL.leverage}, impliedYield=${mergedRatexHyloSOL.impliedYield}, apy=${mergedRatexHyloSOL.apy}, source=${mergedRatexHyloSOL.source}`);
+    }
+    if (mergedExponentHyloSOL) {
+      console.log(`   Exponent YT-hyloSOL-10DEC25: leverage=${mergedExponentHyloSOL.leverage}, impliedYield=${mergedExponentHyloSOL.impliedYield}, apy=${mergedExponentHyloSOL.apy}, source=${mergedExponentHyloSOL.source}`);
+    }
+    
     // ========== Update Gist (Phase 1) ==========
     console.log('\n📤 Updating Gist with Phase 1 data...');
     const ratexCount = phase1MergedData.filter(a => a.source === 'ratex').length;
@@ -282,6 +304,17 @@ async function main() {
     });
     
     console.log(`   📊 Final Gist: ${phase2FinalData.length} total assets (${phase2FinalData.filter(a => a.source === 'ratex').length} RateX + ${phase2FinalData.filter(a => a.source === 'exponent').length} Exponent)`);
+    
+    // Debug: Check hyloSOL values in final Phase 2 data
+    const finalRatexHyloSOL = phase2FinalData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('2511'));
+    const finalExponentHyloSOL = phase2FinalData.find(a => a.asset.includes('hyloSOL') && a.asset.includes('10DEC'));
+    console.log('\n🔍 DEBUG - Phase 2 Final Values (sending to Gist):');
+    if (finalRatexHyloSOL) {
+      console.log(`   RateX hyloSOL-2511: leverage=${finalRatexHyloSOL.leverage}, impliedYield=${finalRatexHyloSOL.impliedYield}, apy=${finalRatexHyloSOL.apy}, source=${finalRatexHyloSOL.source}`);
+    }
+    if (finalExponentHyloSOL) {
+      console.log(`   Exponent YT-hyloSOL-10DEC25: leverage=${finalExponentHyloSOL.leverage}, impliedYield=${finalExponentHyloSOL.impliedYield}, apy=${finalExponentHyloSOL.apy}, source=${finalExponentHyloSOL.source}`);
+    }
     
     // ========== Update Gist (Phase 2) ==========
     console.log('\n📤 Updating Gist with Phase 2 complete data...');

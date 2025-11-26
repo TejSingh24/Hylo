@@ -1178,8 +1178,8 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
             
             const baseAsset = baseAssetMatch[1];
             
-            // Extract maturity - more flexible pattern to handle spacing variations
-            const fullMaturityPattern = /This market expires on ([A-Za-z]+\s+\d+,\s+\d{4})\s+at\s+(\d{1,2}:\d{2}\s+[AP]M)\s*\.?\s*(GMT[+-]\d{1,2}:\d{2})/i;
+            // Extract maturity - handle timezone variations (GMT+5:30 or GMT+0)
+            const fullMaturityPattern = /This market expires on ([A-Za-z]+\s+\d+,\s+\d{4})\s+at\s+(\d{1,2}:\d{2}\s+[AP]M)\s*\.?\s*(GMT[+-]\d{1,2}(?::\d{2})?)/i;
             const fullMatch = bodyText.match(fullMaturityPattern);
             
             const simpleMaturityPattern = /This market expires on (\d{1,2})\s+([A-Za-z]{3})\s+(\d{2})/i;
@@ -1212,11 +1212,11 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
                 if (ampm === 'PM' && hours !== 12) hours += 12;
                 if (ampm === 'AM' && hours === 12) hours = 0;
                 
-                const tzMatch = timezone.match(/GMT([+-])(\d{1,2}):(\d{2})/);
+                const tzMatch = timezone.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
                 if (tzMatch) {
                   const tzSign = tzMatch[1];
                   const tzHours = parseInt(tzMatch[2]);
-                  const tzMinutes = parseInt(tzMatch[3]);
+                  const tzMinutes = tzMatch[3] ? parseInt(tzMatch[3]) : 0; // Default to 0 if no minutes
                   const tzOffsetMinutes = (tzSign === '+' ? -1 : 1) * (tzHours * 60 + tzMinutes);
                   
                   const localDate = new Date(`${year}-${monthStr}-${day}T${hours.toString().padStart(2, '0')}:${minutes}:00`);

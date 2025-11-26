@@ -159,7 +159,7 @@ export async function scrapeAllExponentAssets() {
     }
     
     // Wait for skeleton loaders to disappear (Implied APY loads dynamically)
-    console.log('⏳ Waiting for Implied APY to load...');
+    console.log('⏳ Waiting for skeleton loaders to disappear...');
     try {
       await page.waitForFunction(
         () => {
@@ -168,23 +168,51 @@ export async function scrapeAllExponentAssets() {
         },
         { timeout: 10000 }
       );
-      console.log('✅ Implied APY data loaded!');
+      console.log('✅ Skeleton loaders gone!');
     } catch (e) {
       console.warn('⚠️  Timeout waiting for skeleton loaders, proceeding anyway...');
     }
     
+    // Wait for Implied APY values to become non-zero
+    console.log('⏳ Waiting for Implied APY values to populate (checking every 1s, max 30s)...');
+    try {
+      await page.waitForFunction(
+        () => {
+          const bodyText = document.body.textContent;
+          // Look for "Implied APY" followed by a non-zero percentage
+          const impliedApyMatches = bodyText.match(/Implied\s+APY\s+([\d.]+)%/gi);
+          if (!impliedApyMatches) return false;
+          
+          // Check if we have at least 5 non-zero Implied APY values
+          let nonZeroCount = 0;
+          for (const match of impliedApyMatches) {
+            const valueMatch = match.match(/([\d.]+)%/);
+            if (valueMatch && parseFloat(valueMatch[1]) > 0) {
+              nonZeroCount++;
+            }
+          }
+          console.log(`  Found ${nonZeroCount} non-zero Implied APY values`);
+          return nonZeroCount >= 5;
+        },
+        { timeout: 30000, polling: 1000 }
+      );
+      console.log('✅ Implied APY data loaded!');
+    } catch (e) {
+      console.warn('⚠️  Timeout waiting for Implied APY data after 30s, proceeding anyway...');
+    }
+    
     // Wait for leverage values to load (should show numbers, not ∞x)
-    console.log('⏳ Waiting for leverage values to load (checking every 500ms, max 30s)...');
+    console.log('⏳ Waiting for leverage values to load (checking every 1s, max 30s)...');
     try {
       await page.waitForFunction(
         () => {
           const bodyText = document.body.textContent;
           const numericLeverageMatches = bodyText.match(/Effective\s+Exposure[\s\S]{0,20}[\d.]+x/gi);
           const count = numericLeverageMatches ? numericLeverageMatches.length : 0;
-          console.log(`  Checking... found ${count} numeric leverage values`);
+          console.log(`  Found ${count} numeric leverage values (not ∞)`);
           return numericLeverageMatches && numericLeverageMatches.length >= 5;
         },
-        { timeout: 30000, polling: 500 }
+        { timeout: 30000, polling: 1000 }
       );
       console.log('✅ Leverage data loaded!');
     } catch (e) {

@@ -71,9 +71,12 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
   };
 
   // Calculate price range (without $ symbol)
-  const priceRange = asset.ytPriceLower !== null && asset.ytPriceUpper !== null
-    ? `${formatPrice(asset.ytPriceLower)} - ${formatPrice(asset.ytPriceUpper)}`
-    : 'N/A';
+  const priceRange = 
+    asset.ytPriceLower !== null && asset.ytPriceLower > 0 && asset.ytPriceUpper !== null && asset.ytPriceUpper > 0
+      ? `${formatPrice(asset.ytPriceLower)} - ${formatPrice(asset.ytPriceUpper)}`
+      : asset.ytPriceLower !== null && asset.ytPriceLower > 0
+        ? `${formatPrice(asset.ytPriceLower)} - N/A`
+        : 'N/A';
 
   return (
     <div 

@@ -201,6 +201,10 @@ async function main() {
     
     // ========== Update Gist (Phase 1) ==========
     console.log('\n📤 Updating Gist with Phase 1 data...');
+    const ratexCount = phase1MergedData.filter(a => a.source === 'ratex').length;
+    const exponentCount = phase1MergedData.filter(a => a.source === 'exponent').length;
+    console.log(`   📊 Gist will contain: ${ratexCount} RateX + ${exponentCount} Exponent = ${phase1MergedData.length} total`);
+    
     const phase1GistData = {
       lastUpdated: phase1Timestamp,
       phase: 1,
@@ -268,17 +272,24 @@ async function main() {
       scrapeExponentDetailPages(exponentPage, exponentOthers, existingGistData)
     ]);
     
-    // Combine all Phase 2 data
-    const phase2Data = [...phase2AData, ...phase2BRatexData, ...phase2BExponentData];
-    console.log(`\n✅ Phase 2 scraping complete: ${phase2AData.length} Hylo + ${phase2BRatexData.length} RateX + ${phase2BExponentData.length} Exponent = ${phase2Data.length} total assets`);
+    const phase2BData = [...phase2BRatexData, ...phase2BExponentData];
+    console.log(`\n✅ Phase 2 scraping complete: ${phase2AData.length} Hylo assets + ${phase2BData.length} other assets`);
+    
+    // Merge Phase 2B data back into phase2AFullData (which already has Phase 1 + Phase 2A)
+    const phase2FinalData = phase2AFullData.map(asset => {
+      const phase2BUpdate = phase2BData.find(p => p.asset === asset.asset);
+      return phase2BUpdate || asset; // Use Phase 2B data if available, otherwise keep Phase 2A/Phase 1
+    });
+    
+    console.log(`   📊 Final Gist: ${phase2FinalData.length} total assets (${phase2FinalData.filter(a => a.source === 'ratex').length} RateX + ${phase2FinalData.filter(a => a.source === 'exponent').length} Exponent)`);
     
     // ========== Update Gist (Phase 2) ==========
-    console.log('\n📤 Updating Gist with Phase 2 data...');
+    console.log('\n📤 Updating Gist with Phase 2 complete data...');
     const phase2Timestamp = {
       lastUpdated: new Date().toISOString(),
       phase: 2,
-      assetsCount: phase2Data.length,
-      assets: phase2Data
+      assetsCount: phase2FinalData.length,
+      assets: phase2FinalData
     };
     
     await updateGist(GIST_ID, phase2Timestamp, GIST_TOKEN);

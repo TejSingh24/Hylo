@@ -62,6 +62,20 @@ export function calculateMaturesIn(maturityUTC) {
 }
 
 /**
+ * Convert maturityDays decimal to maturesIn format (e.g., 0.2083 -> "0d 5h", 23.417 -> "23d 10h")
+ * @param {number} maturityDays - Days until maturity as decimal
+ * @returns {string} Time until maturity (e.g., "23d 10h")
+ */
+export function convertMaturityDaysToMaturesIn(maturityDays) {
+  if (maturityDays == null || maturityDays < 0) return null;
+  
+  const days = Math.floor(maturityDays);
+  const hours = Math.floor((maturityDays - days) * 24);
+  
+  return `${days}d ${hours}h`;
+}
+
+/**
  * Calculate precise days until maturity (including decimal hours)
  * @param {string} maturity - Maturity date in UTC format
  * @param {string} lastUpdated - Current timestamp
@@ -801,10 +815,17 @@ export async function scrapeAllAssets() {
               result.impliedYield = parseFloat(impliedYieldMatch[1]);
             }
             
-            // Extract Maturity Days
-            const maturityMatch = cardText.match(/([\d]+)\s*Days/i);
+            // Extract Maturity Days - look for patterns like "14 Days" or "10 Hours"
+            let maturityMatch = cardText.match(/([\d]+)\s*Days/i);
             if (maturityMatch) {
               result.maturityDays = parseInt(maturityMatch[1]);
+            } else {
+              // Handle "Hours" format for assets expiring soon - convert to decimal days
+              const hoursMatch = cardText.match(/([\d.]+)\s*Hours?/i);
+              if (hoursMatch) {
+                const hours = parseFloat(hoursMatch[1]);
+                result.maturityDays = hours / 24; // Convert hours to decimal days (e.g., 5 hours = 0.2083 days)
+              }
             }
             
             // Extract Asset Boost and RateX Boost
@@ -874,6 +895,8 @@ export async function scrapeAllAssets() {
             
             // Only add if we found essential data
             if (result.leverage !== null && result.maturityDays !== null) {
+              // Convert maturityDays to maturesIn format for Rate-X assets
+              result.maturesIn = convertMaturityDaysToMaturesIn(result.maturityDays);
               assets.push(result);
               processedAssets.add(fullAssetName); // Track by full name to allow multiple versions
             }
@@ -1022,7 +1045,9 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
       // Calculate precise decimal days for accurate YT metrics
       const preciseDays = calculateDaysToMaturity(asset.maturity, lastUpdated);
       asset.maturityDays = Math.floor(preciseDays); // For display
-      asset.maturesIn = detailData.maturesIn;
+      
+      // Use scraped maturesIn if available, otherwise calculate from maturity date
+      asset.maturesIn = detailData.maturesIn || (asset.maturity ? calculateMaturesIn(asset.maturity) : null);
       
       // Note: projectBackgroundImage, projectName, and assetSymbolImage 
       // are already set from Phase 1, so we don't touch them here

@@ -895,8 +895,6 @@ export async function scrapeAllAssets() {
             
             // Only add if we found essential data
             if (result.leverage !== null && result.maturityDays !== null) {
-              // Convert maturityDays to maturesIn format for Rate-X assets
-              result.maturesIn = convertMaturityDaysToMaturesIn(result.maturityDays);
               assets.push(result);
               processedAssets.add(fullAssetName); // Track by full name to allow multiple versions
             }
@@ -909,6 +907,13 @@ export async function scrapeAllAssets() {
     
     console.log(`✅ Successfully scraped ${allAssetData.length} assets in ONE page visit!`);
     console.log('Assets found:', allAssetData.map(a => a.asset).join(', '));
+    
+    // Convert maturityDays to maturesIn format for Rate-X assets (after page.evaluate)
+    allAssetData.forEach(asset => {
+      if (asset.maturityDays !== null) {
+        asset.maturesIn = convertMaturityDaysToMaturesIn(asset.maturityDays);
+      }
+    });
     
     await browser.close();
     return allAssetData;

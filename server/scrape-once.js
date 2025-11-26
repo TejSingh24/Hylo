@@ -93,13 +93,17 @@ async function main() {
     }
     
     // Apply APY and assetBoost validation in-memory (no re-scraping!)
-    console.log('\n🔄 Applying APY and assetBoost validation...');
+    console.log('\n🔄 Applying APY, assetBoost, visual assets, and YT metrics validation...');
     const ratexMap = new Map(
       ratexData.map(asset => [asset.baseAsset.toLowerCase(), asset])
     );
     
     let apyValidatedCount = 0;
     let boostValidatedCount = 0;
+    let visualAssetsCount = 0;
+    let rangeLowerCount = 0;
+    let ytMetricsCount = 0;
+    
     exponentData.forEach(exponentAsset => {
       const ratexMatch = ratexMap.get(exponentAsset.baseAsset.toLowerCase());
       const oldAsset = existingGistData[exponentAsset.asset];
@@ -123,6 +127,22 @@ async function main() {
       }
       // else: keep null (will be filled in Phase 2)
       
+      // Visual Assets Priority: RateX match → OLD Gist → null
+      if (ratexMatch && ratexMatch.projectBackgroundImage) {
+        exponentAsset.projectBackgroundImage = ratexMatch.projectBackgroundImage;
+        exponentAsset.projectName = ratexMatch.projectName;
+        exponentAsset.assetSymbolImage = ratexMatch.assetSymbolImage;
+        console.log(`  ✓ ${exponentAsset.asset}: Copied visual assets from RateX (${ratexMatch.projectName})`);
+        visualAssetsCount++;
+      } else if (oldAsset && oldAsset.projectBackgroundImage) {
+        exponentAsset.projectBackgroundImage = oldAsset.projectBackgroundImage;
+        exponentAsset.projectName = oldAsset.projectName;
+        exponentAsset.assetSymbolImage = oldAsset.assetSymbolImage;
+        console.log(`  ✓ ${exponentAsset.asset}: Using OLD gist visual assets (${oldAsset.projectName})`);
+        visualAssetsCount++;
+      }
+      // else: keep null (will be filled in Phase 2)
+      
       // Maturity Priority: OLD Gist → Asset name calculation
       if (oldAsset && oldAsset.maturity) {
         exponentAsset.maturity = oldAsset.maturity;
@@ -130,45 +150,108 @@ async function main() {
         exponentAsset.maturesIn = calculateMaturesIn(oldAsset.maturity);
       }
       // else: keep maturity from asset name calculation (done in scraper-exponent.js)
+      
+      // Set rangeLower = apy (Underlying APY) for Phase 1 YT metric calculations
+      if (exponentAsset.apy !== null) {
+        exponentAsset.rangeLower = exponentAsset.apy;
+        rangeLowerCount++;
+      }
+      
+      // Calculate YT metrics in Phase 1 (rangeUpper will be null until Phase 2)
+      if (exponentAsset.maturity && exponentAsset.impliedYield !== null) {
+        const phase1Timestamp = new Date().toISOString();
+        const ytMetrics = calculateYtMetrics(
+          exponentAsset.maturity,
+          exponentAsset.impliedYield,
+          exponentAsset.rangeLower, // = apy
+          null, // rangeUpper not available in Phase 1
+          phase1Timestamp,
+          exponentAsset.leverage,
+          exponentAsset.apy,
+          exponentAsset.maturityDays,
+          exponentAsset.assetBoost,
+          'exponent' // source
+        );
+        
+        // Copy calculated metrics to asset
+        exponentAsset.ytPriceCurrent = ytMetrics.ytPriceCurrent;
+        exponentAsset.ytPriceLower = ytMetrics.ytPriceLower;
+        exponentAsset.ytPriceUpper = ytMetrics.ytPriceUpper; // Will be null
+        exponentAsset.upsidePotential = ytMetrics.upsidePotential; // Will be null
+        exponentAsset.downsideRisk = ytMetrics.downsideRisk;
+        exponentAsset.endDayCurrentYield = ytMetrics.endDayCurrentYield;
+        exponentAsset.endDayLowerYield = ytMetrics.endDayLowerYield;
+        exponentAsset.dailyDecayRate = ytMetrics.dailyDecayRate;
+        exponentAsset.expectedRecoveryYield = ytMetrics.expectedRecoveryYield;
+        exponentAsset.expectedPointsPerDay = ytMetrics.expectedPointsPerDay;
+        exponentAsset.totalExpectedPoints = ytMetrics.totalExpectedPoints;
+        
+        ytMetricsCount++;
+        console.log(`  ✓ ${exponentAsset.asset}: Calculated Phase 1 YT metrics (ytPriceCurrent=${ytMetrics.ytPriceCurrent}, downsideRisk=${ytMetrics.downsideRisk})`);
+      }
     });
     
     console.log(`✅ APY validation: ${apyValidatedCount}/${exponentData.length} assets updated`);
     console.log(`✅ assetBoost validation: ${boostValidatedCount}/${exponentData.length} assets updated`);
+    console.log(`✅ Visual assets: ${visualAssetsCount}/${exponentData.length} assets updated`);
+    console.log(`✅ rangeLower set: ${rangeLowerCount}/${exponentData.length} assets`);
+    console.log(`✅ YT metrics calculated: ${ytMetricsCount}/${exponentData.length} assets`);
     
     // Merge RateX + Exponent assets
     const allAssets = [...ratexData, ...exponentData];
     console.log(`\n📊 Total combined assets: ${allAssets.length} (${ratexData.length} RateX + ${exponentData.length} Exponent)`);
     
-    // Merge with existing Gist data (preserve range/maturity)
-    console.log('\n🔀 Merging with existing data and calculating YT metrics...');
+    // Merge with existing Gist data and finalize Phase 1
+    console.log('\n🔀 Merging and finalizing Phase 1 data...');
     const phase1Timestamp = new Date().toISOString(); // Single timestamp for all Phase 1 calculations
     
     const phase1MergedData = allAssets.map(newAsset => {
       const oldAsset = existingGistData[newAsset.asset];
       
-      // Preserve old detail page data (if exists)
-      const rangeLower = oldAsset?.rangeLower ?? null;
-      const rangeUpper = oldAsset?.rangeUpper ?? null;
-      const maturity = oldAsset?.maturity ?? null;
+      // For RateX assets: calculate YT metrics (they don't have Phase 1 pre-calculation)
+      // For Exponent assets: use pre-calculated values from validation section
+      let ytMetrics;
+      if (newAsset.source === 'ratex') {
+        // RateX: Use old gist ranges or calculate with fresh data
+        const rangeLower = oldAsset?.rangeLower ?? null;
+        const rangeUpper = oldAsset?.rangeUpper ?? null;
+        const maturity = oldAsset?.maturity ?? null;
+        
+        ytMetrics = calculateYtMetrics(
+          maturity,
+          newAsset.impliedYield,
+          rangeLower,
+          rangeUpper,
+          phase1Timestamp,
+          newAsset.leverage,
+          newAsset.apy,
+          newAsset.maturityDays,
+          newAsset.assetBoost,
+          'ratex'
+        );
+      } else {
+        // Exponent: Use pre-calculated Phase 1 metrics from validation section
+        ytMetrics = {
+          ytPriceCurrent: newAsset.ytPriceCurrent ?? null,
+          ytPriceLower: newAsset.ytPriceLower ?? null,
+          ytPriceUpper: newAsset.ytPriceUpper ?? null,
+          upsidePotential: newAsset.upsidePotential ?? null,
+          downsideRisk: newAsset.downsideRisk ?? null,
+          endDayCurrentYield: newAsset.endDayCurrentYield ?? null,
+          endDayLowerYield: newAsset.endDayLowerYield ?? null,
+          dailyDecayRate: newAsset.dailyDecayRate ?? null,
+          expectedRecoveryYield: newAsset.expectedRecoveryYield ?? null,
+          expectedPointsPerDay: newAsset.expectedPointsPerDay ?? null,
+          totalExpectedPoints: newAsset.totalExpectedPoints ?? null
+        };
+      }
       
-      // Recalculate maturesIn using preserved maturity date
+      // Recalculate maturesIn to be current
+      const maturity = newAsset.maturity ?? oldAsset?.maturity ?? null;
       const maturesIn = maturity ? calculateMaturesIn(maturity) : null;
       
-      // Calculate YT metrics using:
-      // - Fresh: leverage, apy, impliedYield, maturityDays, assetBoost (from cards page)
-      // - Preserved: rangeLower, rangeUpper, maturity (from old Gist)
-      const ytMetrics = calculateYtMetrics(
-        maturity,
-        newAsset.impliedYield,
-        rangeLower,
-        rangeUpper,
-        phase1Timestamp,
-        newAsset.leverage,
-        newAsset.apy,
-        newAsset.maturityDays,
-        newAsset.assetBoost,
-        newAsset.source // Pass source to use correct formula
-      );
+      // Preserve old detail page data (rangeUpper from Phase 2)
+      const rangeUpper = oldAsset?.rangeUpper ?? null;
       
       return {
         // New data from cards (always update these)
@@ -187,13 +270,13 @@ async function main() {
         projectName: newAsset.projectName ?? null,
         assetSymbolImage: newAsset.assetSymbolImage ?? null,
         
-        // Preserved detail page data (if exists)
-        rangeLower: rangeLower,
-        rangeUpper: rangeUpper,
+        // Range and maturity data
+        rangeLower: newAsset.rangeLower ?? oldAsset?.rangeLower ?? null, // For Exponent: set in Phase 1, for RateX: from old gist
+        rangeUpper: rangeUpper, // Only from old gist (Phase 2 data)
         maturity: maturity,
         maturesIn: maturesIn,  // Recalculated to be current
         
-        // Calculated YT metrics (using fresh + preserved data)
+        // Calculated YT metrics
         ytPriceCurrent: ytMetrics.ytPriceCurrent,
         ytPriceLower: ytMetrics.ytPriceLower,
         ytPriceUpper: ytMetrics.ytPriceUpper,

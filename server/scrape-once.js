@@ -69,15 +69,14 @@ async function main() {
       ignoreHTTPSErrors: true,
     });
     
-    // ========== PHASE 1: Scrape Cards Page (SEQUENTIAL) ==========
-    console.log('\n🚀 PHASE 1: Scraping RateX first, then Exponent...');
+    // ========== PHASE 1: Scrape Cards Page (PARALLEL) ==========
+    console.log('\n🚀 PHASE 1: Scraping RateX and Exponent in parallel...');
     
-    // Run scrapers sequentially to avoid conflicts
-    console.log('📊 Step 1a: Scraping RateX...');
-    const ratexData = await scrapeAllAssets();
-    
-    console.log('📊 Step 1b: Scraping Exponent...');
-    const exponentData = await scrapeAllExponentAssets();
+    // Run scrapers in parallel for speed
+    const [ratexData, exponentData] = await Promise.all([
+      scrapeAllAssets(),
+      scrapeAllExponentAssets()
+    ]);
     
     console.log(`✅ RateX: ${ratexData.length} assets`);
     console.log(`✅ Exponent: ${exponentData.length} assets`);

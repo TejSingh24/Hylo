@@ -149,6 +149,40 @@ export async function scrapeAllExponentAssets() {
     // Set realistic user agent
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
+    // Set extra headers for CORS
+    await page.setExtraHTTPHeaders({
+      'Origin': 'https://www.exponent.finance',
+      'Referer': 'https://www.exponent.finance/',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+    });
+    
+    // ========== SOLUTION 1: FETCH API OVERRIDE (MOST RELIABLE) ==========
+    console.log('🔧 Overriding fetch API to replace RPC endpoint...');
+    await page.evaluateOnNewDocument(() => {
+      // Store original fetch
+      const originalFetch = window.fetch;
+      
+      // Override fetch to replace Ironforge with Helius
+      window.fetch = function(...args) {
+        let [url, options] = args;
+        
+        // Replace Ironforge RPC with Helius
+        if (typeof url === 'string' && url.includes('rpc.ironforge.network')) {
+          const originalUrl = url;
+          url = 'https://mainnet.helius-rpc.com/?api-key=fe38382c-4a26-4459-b240-f25ce8c317bb';
+          console.log('🔄 FETCH OVERRIDE: Ironforge → Helius');
+          console.log('   Original:', originalUrl.substring(0, 60));
+          console.log('   New:', url.substring(0, 60));
+        }
+        
+        // Call original fetch with modified URL
+        return originalFetch(url, options);
+      };
+      
+      console.log('✅ Fetch API override installed');
+    });
+    
     // Hide webdriver property
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
@@ -158,39 +192,28 @@ export async function scrapeAllExponentAssets() {
     console.log('🌐 Setting up network request monitoring...');
     const solanaResponses = [];
     const apiResponses = [];
+    const heliusResponses = [];
     
-    // ========== RPC ENDPOINT REPLACEMENT (FIX FOR 403 FORBIDDEN) ==========
-    console.log('🔧 Enabling RPC request interception to fix 403 errors...');
+    // ========== SOLUTION 2: REQUEST INTERCEPTION (BACKUP) ==========
+    console.log('🔧 Enabling Puppeteer request interception as backup...');
     await page.setRequestInterception(true);
     
     page.on('request', request => {
       const url = request.url();
       
-      // Replace Ironforge RPC (which returns 403) with public Solana RPC
+      // Replace Ironforge RPC with Helius (backup to fetch override)
       if (url.includes('rpc.ironforge.network')) {
-        console.log(`  🔄 INTERCEPTING Ironforge RPC call`);
-        console.log(`     Original URL: ${url.substring(0, 80)}...`);
+        console.log(`  🔄 PUPPETEER INTERCEPT: Ironforge RPC call (backup)`);
         
-        // Extract the API key if present (for logging)
-        const apiKeyMatch = url.match(/apiKey=([A-Z0-9]+)/);
-        if (apiKeyMatch) {
-          console.log(`     Had API Key: ${apiKeyMatch[1].substring(0, 10)}...`);
-        }
-        
-        // Use public Solana RPC endpoint instead (no API key needed)
-        const newUrl = 'https://api.mainnet-beta.solana.com';
-        console.log(`     Replaced with: ${newUrl}`);
+        const newUrl = 'https://mainnet.helius-rpc.com/?api-key=fe38382c-4a26-4459-b240-f25ce8c317bb';
         
         // Get the POST data (contains the actual RPC method/params)
         const postData = request.postData();
-        if (postData) {
-          console.log(`     POST body: ${postData.substring(0, 150)}...`);
-        }
         
         request.continue({
           url: newUrl,
           method: request.method(),
-          postData: postData, // Keep the RPC request body
+          postData: postData,
           headers: {
             ...request.headers(),
             'Content-Type': 'application/json',
@@ -198,23 +221,60 @@ export async function scrapeAllExponentAssets() {
             'Referer': 'https://www.exponent.finance/'
           }
         });
+      } else if (url.includes('helius-rpc.com')) {
+        // Log Helius requests (our replacement)
+        console.log(`  ✅ Helius RPC Request: ${request.method()}`);
+        request.continue();
       } else {
-        // Log other RPC requests
-        if (url.includes('solana') || url.includes('rpc') || url.includes('mainnet')) {
-          console.log(`  📤 RPC Request: ${request.method()} ${url.substring(0, 80)}...`);
+        // Log other requests
+        if (url.includes('solana') || url.includes('mainnet')) {
+          console.log(`  📤 Other RPC: ${url.substring(0, 60)}...`);
         }
         request.continue();
       }
     });
     
-    // Capture Solana RPC responses
+    // Capture responses with better filtering
     page.on('response', async response => {
       try {
         const url = response.url();
+        const status = response.status();
         
-        // Check for Solana RPC calls
-        if (url.includes('solana') || url.includes('rpc') || url.includes('mainnet-beta')) {
-          console.log(`  📥 RPC Response: ${response.status()} ${url.substring(0, 80)}...`);
+        // Track Helius responses (our successful replacements!)
+        if (url.includes('helius-rpc.com')) {
+          console.log(`  ✅ Helius Response: ${status} ${status === 200 ? '(SUCCESS!)' : '(FAILED)'}`);
+          
+          const contentType = response.headers()['content-type'] || '';
+          if (contentType.includes('json')) {
+            try {
+              const data = await response.json();
+              heliusResponses.push({
+                url: url,
+                status: status,
+                data: data,
+                timestamp: new Date().toISOString()
+              });
+              
+              // Log if we got actual pool data
+              const dataStr = JSON.stringify(data);
+              if (dataStr.includes('"result"') && status === 200) {
+                console.log(`     🎯 GOT BLOCKCHAIN DATA! (${dataStr.length} bytes)`);
+                if (dataStr.includes('value') || dataStr.includes('data')) {
+                  console.log(`     💎 Contains account/pool data!`);
+                }
+              } else if (dataStr.includes('error')) {
+                console.log(`     ❌ RPC Error: ${dataStr.substring(0, 100)}`);
+              }
+            } catch (jsonError) {
+              console.log(`     ⚠️  Could not parse Helius JSON: ${jsonError.message}`);
+            }
+          }
+        }
+        // Track failed Ironforge responses (should not happen if override works)
+        else if (url.includes('rpc.ironforge.network')) {
+          if (status === 403) {
+            console.log(`  ⚠️  IRONFORGE 403 - Override may have failed!`);
+          }
           
           const contentType = response.headers()['content-type'] || '';
           if (contentType.includes('json')) {
@@ -222,20 +282,18 @@ export async function scrapeAllExponentAssets() {
               const data = await response.json();
               solanaResponses.push({
                 url: url,
-                status: response.status(),
+                status: status,
                 data: data,
                 timestamp: new Date().toISOString()
               });
-              console.log(`     ✅ Captured RPC response (${JSON.stringify(data).length} bytes)`);
             } catch (jsonError) {
-              console.log(`     ⚠️  Could not parse RPC JSON: ${jsonError.message}`);
+              // Ignore
             }
           }
         }
-        
         // Check for Exponent API calls
-        if (url.includes('api.exponent') || url.includes('exponent.finance/api')) {
-          console.log(`  📥 API Response: ${response.status()} ${url}`);
+        else if (url.includes('api.exponent') || url.includes('exponent.finance/api')) {
+          console.log(`  📥 Exponent API: ${status} ${url.substring(0, 60)}...`);
           
           const contentType = response.headers()['content-type'] || '';
           if (contentType.includes('json')) {
@@ -243,13 +301,12 @@ export async function scrapeAllExponentAssets() {
               const data = await response.json();
               apiResponses.push({
                 url: url,
-                status: response.status(),
+                status: status,
                 data: data,
                 timestamp: new Date().toISOString()
               });
-              console.log(`     ✅ Captured API response`);
             } catch (jsonError) {
-              console.log(`     ⚠️  Could not parse API JSON: ${jsonError.message}`);
+              // Ignore
             }
           }
         }
@@ -448,38 +505,50 @@ export async function scrapeAllExponentAssets() {
     
     // ========== Network Request Summary ==========
     console.log('\n📊 Network Request Summary:');
-    console.log(`   Solana RPC responses captured: ${solanaResponses.length}`);
-    console.log(`   Exponent API responses captured: ${apiResponses.length}`);
+    console.log(`   ✅ Helius (SUCCESS) responses: ${heliusResponses.length}`);
+    console.log(`   ⚠️  Ironforge (FAILED) responses: ${solanaResponses.length}`);
+    console.log(`   📡 Exponent API responses: ${apiResponses.length}`);
     
-    if (solanaResponses.length > 0) {
-      console.log('\n   🔍 Solana RPC Responses:');
-      solanaResponses.forEach((resp, idx) => {
-        console.log(`     ${idx + 1}. ${resp.url.substring(0, 60)}... (${resp.status})`);
-        // Check if response contains relevant data
-        const dataStr = JSON.stringify(resp.data);
-        if (dataStr.includes('result')) {
-          console.log(`        Contains result field`);
+    if (heliusResponses.length > 0) {
+      console.log('\n   🎯 Helius RPC Responses (Our Replacements):');
+      let successCount = 0;
+      let errorCount = 0;
+      
+      heliusResponses.forEach((resp, idx) => {
+        if (resp.status === 200) {
+          successCount++;
+          const dataStr = JSON.stringify(resp.data);
+          if (dataStr.includes('"result"') && dataStr.length > 200) {
+            console.log(`     ${idx + 1}. ✅ SUCCESS with data (${dataStr.length} bytes)`);
+          } else {
+            console.log(`     ${idx + 1}. ✅ 200 OK but minimal data (${dataStr.length} bytes)`);
+          }
+        } else {
+          errorCount++;
+          console.log(`     ${idx + 1}. ❌ Status ${resp.status}`);
         }
       });
+      
+      console.log(`   📊 Summary: ${successCount} successful, ${errorCount} failed`);
+      
+      if (successCount > 0) {
+        console.log('   🎉 RPC OVERRIDE WORKING! Blockchain data received!');
+      } else {
+        console.log('   ⚠️  No successful RPC responses - calculations may fail');
+      }
+    } else {
+      console.log('   ❌ NO HELIUS RESPONSES - Override may not be working!');
+    }
+    
+    if (solanaResponses.length > 0) {
+      console.log(`\n   ⚠️  ${solanaResponses.length} Ironforge responses detected (override didn't catch these)`);
     }
     
     if (apiResponses.length > 0) {
       console.log('\n   🔍 Exponent API Responses:');
       apiResponses.forEach((resp, idx) => {
-        console.log(`     ${idx + 1}. ${resp.url} (${resp.status})`);
+        console.log(`     ${idx + 1}. ${resp.url.substring(0, 60)}... (${resp.status})`);
       });
-    }
-    
-    // Try to extract pool data from RPC responses if available
-    if (solanaResponses.length > 0) {
-      console.log('\n   🎯 Analyzing RPC responses for pool data...');
-      for (const resp of solanaResponses) {
-        const dataStr = JSON.stringify(resp.data);
-        if (dataStr.includes('reserve') || dataStr.includes('pool') || dataStr.includes('liquidity')) {
-          console.log(`     Found potential pool data in: ${resp.url.substring(0, 60)}...`);
-          console.log(`     Data snippet: ${dataStr.substring(0, 200)}...`);
-        }
-      }
     }
     
     console.log('\n🔍 Extracting asset data...');

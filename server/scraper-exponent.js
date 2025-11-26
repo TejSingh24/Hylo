@@ -203,6 +203,27 @@ export async function scrapeAllExponentAssets() {
       // Get the last count before timeout
       const finalCount = await page.evaluate(() => window.__impliedApyCount || 0);
       console.warn(`⚠️  Timeout waiting for Implied APY data after 40s (found ${finalCount}/5 non-zero values), proceeding anyway...`);
+      
+      // Take screenshot for debugging
+      try {
+        const screenshotPath = `/tmp/exponent-implied-apy-timeout-${Date.now()}.png`;
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        console.log(`📸 Screenshot saved to: ${screenshotPath}`);
+      } catch (screenshotError) {
+        console.warn('Could not save screenshot:', screenshotError.message);
+      }
+      
+      // Log page content for debugging
+      const bodyText = await page.evaluate(() => document.body.innerText);
+      console.log('📄 Page title:', await page.title());
+      console.log('📄 Body text length:', bodyText.length);
+      console.log('📄 Body text preview (first 800 chars):', bodyText.substring(0, 800));
+      
+      // Check for specific patterns
+      const impliedApyCount = (bodyText.match(/Implied\s+APY/gi) || []).length;
+      const skeletonCount = await page.evaluate(() => document.querySelectorAll('.skeleton-gray').length);
+      console.log(`📊 Found "Implied APY" text ${impliedApyCount} times`);
+      console.log(`📊 Skeleton loaders remaining: ${skeletonCount}`);
     }
     
     // Wait for leverage values to load (should show numbers, not ∞x)
@@ -223,6 +244,25 @@ export async function scrapeAllExponentAssets() {
     } catch (e) {
       const finalCount = await page.evaluate(() => window.__leverageCount || 0);
       console.warn(`⚠️  Timeout waiting for leverage data after 40s (found ${finalCount}/5 numeric values), proceeding anyway...`);
+      
+      // Take screenshot for debugging
+      try {
+        const screenshotPath = `/tmp/exponent-leverage-timeout-${Date.now()}.png`;
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        console.log(`📸 Screenshot saved to: ${screenshotPath}`);
+      } catch (screenshotError) {
+        console.warn('Could not save screenshot:', screenshotError.message);
+      }
+      
+      // Log page content for debugging
+      const bodyText = await page.evaluate(() => document.body.innerText);
+      console.log('📄 Body text sample (800 chars):', bodyText.substring(0, 800));
+      
+      // Check for specific patterns
+      const leverageCount = (bodyText.match(/Effective\s+Exposure/gi) || []).length;
+      const infinityCount = (bodyText.match(/∞x/gi) || []).length;
+      console.log(`📊 Found "Effective Exposure" text ${leverageCount} times`);
+      console.log(`📊 Found "∞x" (infinity) ${infinityCount} times`);
     }
     
     // Additional wait to ensure all data is rendered

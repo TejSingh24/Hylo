@@ -174,23 +174,25 @@ export async function scrapeAllExponentAssets() {
     }
     
     // Wait for leverage values to load (should show numbers, not ∞x)
-    console.log('⏳ Waiting for leverage values to load...');
+    console.log('⏳ Waiting for leverage values to load (checking every 500ms, max 30s)...');
     try {
       await page.waitForFunction(
         () => {
           const bodyText = document.body.textContent;
           const numericLeverageMatches = bodyText.match(/Effective\s+Exposure[\s\S]{0,20}[\d.]+x/gi);
+          const count = numericLeverageMatches ? numericLeverageMatches.length : 0;
+          console.log(`  Checking... found ${count} numeric leverage values`);
           return numericLeverageMatches && numericLeverageMatches.length >= 5;
         },
-        { timeout: 15000 }
+        { timeout: 30000, polling: 500 }
       );
       console.log('✅ Leverage data loaded!');
     } catch (e) {
-      console.warn('⚠️  Timeout waiting for leverage data, proceeding anyway...');
+      console.warn('⚠️  Timeout waiting for leverage data after 30s, proceeding anyway...');
     }
     
     // Additional wait to ensure all data is rendered
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
     
     console.log('🔍 Extracting asset data...');
     

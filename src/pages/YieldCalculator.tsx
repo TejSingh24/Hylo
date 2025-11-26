@@ -127,7 +127,8 @@ function YieldCalculator() {
       }
 
       const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100
-      const netResult = grossResult * 0.995 // Platform takes 0.5% of yield
+      // Platform fees: RateX takes 5%, Exponent takes 5.5% (default to RateX for manual mode)
+      const netResult = grossResult * 0.95
       
       // Calculate Expected Total Points: Leverage × Asset Boost × Deposit Amount × Maturity Days
       const assetBoost = mode === 'auto' && autoData ? (autoData.assetBoost || 0) : parseFloat(assetBoostManual) || 0;
@@ -312,7 +313,9 @@ function YieldCalculator() {
       
       if (leverageNum > 0 && maturityDaysNum > 0) {
         const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
-        const netResult = grossResult * 0.995;
+        // Platform fees: RateX takes 5%, Exponent takes 5.5%
+        const feeMultiplier = assetData.source === 'exponent' ? 0.945 : 0.95;
+        const netResult = grossResult * feeMultiplier;
         
         // Calculate Expected Total Points: Leverage × Asset Boost × Deposit Amount × Maturity Days
         const assetBoost = assetData.assetBoost || 0;
@@ -340,7 +343,9 @@ function YieldCalculator() {
       
       if (leverageNum > 0 && maturityDaysNum > 0) {
         const grossResult = leverageNum * (Math.pow(1 + apyNum, 1 / 365) - 1) * 365 * (maturityDaysNum / 365) * 100;
-        const netResult = grossResult * 0.995;
+        // Platform fees: RateX takes 5%, Exponent takes 5.5%
+        const feeMultiplier = autoData.source === 'exponent' ? 0.945 : 0.95;
+        const netResult = grossResult * feeMultiplier;
         
         // Calculate Expected Total Points: Leverage × Asset Boost × Deposit Amount × Maturity Days
         const assetBoost = parseFloat(editableAssetBoost) || 0;

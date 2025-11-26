@@ -45,11 +45,13 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, depositAmount = 1 }) => {
     }
     
     // Fallback calculation if not provided by backend
-    const { leverage, apy, maturityDays } = asset;
+    const { leverage, apy, maturityDays, source } = asset;
     if (leverage && apy && maturityDays) {
       const apyDecimal = apy / 100;
       const grossYield = leverage * (Math.pow(1 + apyDecimal, 1 / 365) - 1) * 365 * (maturityDays / 365) * 100;
-      return grossYield * 0.995; // Net yield after 0.5% platform fee
+      // Platform fees: RateX takes 5%, Exponent takes 5.5%
+      const feeMultiplier = source === 'exponent' ? 0.945 : 0.95;
+      return grossYield * feeMultiplier;
     }
     
     return null;

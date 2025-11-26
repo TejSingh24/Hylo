@@ -983,7 +983,10 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
       asset.rangeLower = detailData.rangeLower;
       asset.rangeUpper = detailData.rangeUpper;
       asset.maturity = detailData.maturity;
-      asset.maturityDays = Math.floor(calculateDaysToMaturity(asset.maturity, lastUpdated));
+      
+      // Calculate precise decimal days for accurate YT metrics
+      const preciseDays = calculateDaysToMaturity(asset.maturity, lastUpdated);
+      asset.maturityDays = Math.floor(preciseDays); // For display
       asset.maturesIn = detailData.maturesIn;
       
       // Note: projectBackgroundImage, projectName, and assetSymbolImage 
@@ -994,7 +997,7 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
         asset.impliedYield = detailData.impliedYield;
       }
       
-      // Calculate all YT metrics
+      // Calculate all YT metrics with precise days
       const ytMetrics = calculateYtMetrics(
         asset.maturity,
         asset.impliedYield,
@@ -1003,7 +1006,7 @@ export async function scrapeDetailPages(page, assets, existingGistData) {
         lastUpdated,
         asset.leverage,
         asset.apy,
-        asset.maturityDays,
+        preciseDays,
         asset.assetBoost
       );
       
@@ -1289,7 +1292,10 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
           if (detailData && detailData.maturity) {
             // Update asset with Phase 2 data
             asset.maturity = detailData.maturity;
-            asset.maturityDays = Math.floor(calculateDaysToMaturity(asset.maturity, lastUpdated));
+            
+            // Calculate precise decimal days for accurate YT metrics
+            const preciseDays = calculateDaysToMaturity(asset.maturity, lastUpdated);
+            asset.maturityDays = Math.floor(preciseDays); // For display
             asset.maturesIn = calculateMaturesIn(asset.maturity);
             
             // Always update assetBoost if we got it from detail page
@@ -1301,7 +1307,7 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
             asset.rangeLower = asset.apy;
             asset.rangeUpper = null;
             
-            // Recalculate YT metrics with Exponent formula
+            // Recalculate YT metrics with Exponent formula and precise days
             const ytMetrics = calculateYtMetrics(
               asset.maturity,
               asset.impliedYield,
@@ -1310,7 +1316,7 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
               lastUpdated,
               asset.leverage,
               asset.apy,
-              asset.maturityDays,
+              preciseDays,
               asset.assetBoost,
               'exponent'
             );

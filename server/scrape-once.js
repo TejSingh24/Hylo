@@ -344,15 +344,15 @@ async function main() {
     
     console.log(`\n📌 Phase 2A: Scraping Hylo assets first (${ratexHylo.length} RateX + ${exponentHylo.length} Exponent)...`);
     
-    // Create separate pages for parallel execution
-    const ratexPage = await browser.newPage();
-    const exponentPage = await browser.newPage();
+    // Create single page for sequential execution
+    const detailPage = await browser.newPage();
     
-    // Scrape Hylo assets in parallel
-    const [phase2AratexData, phase2AExponentData] = await Promise.all([
-      scrapeDetailPages(ratexPage, ratexHylo, existingGistData),
-      scrapeExponentDetailPages(exponentPage, exponentHylo, existingGistData)
-    ]);
+    // Scrape Hylo assets sequentially (RateX first, then Exponent)
+    console.log('  → Scraping RateX Hylo assets...');
+    const phase2AratexData = await scrapeDetailPages(detailPage, ratexHylo, existingGistData);
+    
+    console.log('  → Scraping Exponent Hylo assets...');
+    const phase2AExponentData = await scrapeExponentDetailPages(detailPage, exponentHylo, existingGistData);
     
     const phase2AData = [...phase2AratexData, ...phase2AExponentData];
     
@@ -374,12 +374,14 @@ async function main() {
     await updateGist(GIST_ID, phase2ATimestamp, GIST_TOKEN);
     console.log('✅ Hylo data now live in Gist!');
     
-    // Scrape remaining assets in parallel
+    // Scrape remaining assets sequentially
     console.log(`\n📌 Phase 2B: Scraping remaining assets (${ratexOthers.length} RateX + ${exponentOthers.length} Exponent)...`);
-    const [phase2BRatexData, phase2BExponentData] = await Promise.all([
-      scrapeDetailPages(ratexPage, ratexOthers, existingGistData),
-      scrapeExponentDetailPages(exponentPage, exponentOthers, existingGistData)
-    ]);
+    
+    console.log('  → Scraping RateX remaining assets...');
+    const phase2BRatexData = await scrapeDetailPages(detailPage, ratexOthers, existingGistData);
+    
+    console.log('  → Scraping Exponent remaining assets...');
+    const phase2BExponentData = await scrapeExponentDetailPages(detailPage, exponentOthers, existingGistData);
     
     const phase2BData = [...phase2BRatexData, ...phase2BExponentData];
     console.log(`\n✅ Phase 2 scraping complete: ${phase2AData.length} Hylo assets + ${phase2BData.length} other assets`);

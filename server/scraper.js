@@ -1115,12 +1115,13 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
       
       let detailData = null;
       let attemptNumber = 1;
+      let startTime = null; // Define in outer scope to avoid ReferenceError
       
       for (const url of urlVariations) {
         try {
           console.log(`    [Exponent] Attempt ${attemptNumber}/${urlVariations.length}...`);
           attemptNumber++;
-          const startTime = Date.now();
+          startTime = Date.now();
           
           const response = await page.goto(url, {
             waitUntil: 'domcontentloaded',
@@ -1318,7 +1319,7 @@ export async function scrapeExponentDetailPages(page, assets, existingGistData) 
             break;
           }
         } catch (urlError) {
-          const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+          const elapsedTime = startTime ? ((Date.now() - startTime) / 1000).toFixed(1) : '0.0';
           console.warn(`  ⚠️ Failed at ${elapsedTime}s - ${urlError.message}`);
           continue;
         }

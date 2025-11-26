@@ -801,10 +801,17 @@ export async function scrapeAllAssets() {
               result.impliedYield = parseFloat(impliedYieldMatch[1]);
             }
             
-            // Extract Maturity Days
-            const maturityMatch = cardText.match(/([\d]+)\s*Days/i);
+            // Extract Maturity Days - look for patterns like "14 Days" or "10 Hours"
+            let maturityMatch = cardText.match(/([\d]+)\s*Days/i);
             if (maturityMatch) {
               result.maturityDays = parseInt(maturityMatch[1]);
+            } else {
+              // Handle "Hours" format for assets expiring soon - convert to decimal days
+              const hoursMatch = cardText.match(/([\d.]+)\s*Hours?/i);
+              if (hoursMatch) {
+                const hours = parseFloat(hoursMatch[1]);
+                result.maturityDays = hours / 24; // Convert hours to decimal days (e.g., 5 hours = 0.2083 days)
+              }
             }
             
             // Extract Asset Boost and RateX Boost

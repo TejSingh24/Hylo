@@ -157,30 +157,41 @@ export async function scrapeAllExponentAssets() {
       'Accept-Language': 'en-US,en;q=0.9',
     });
     
-    // ========== SOLUTION 1: FETCH API OVERRIDE (MOST RELIABLE) ==========
-    console.log('🔧 Overriding fetch API to replace RPC endpoint...');
+    // ========== SOLUTION 1: FETCH API OVERRIDE WITH CORS HEADERS ==========
+    console.log('🔧 Testing Ironforge with CORS headers (no URL replacement)...');
     await page.evaluateOnNewDocument(() => {
       // Store original fetch
       const originalFetch = window.fetch;
       
-      // Override fetch to replace Ironforge with Helius
+      // Override fetch to add CORS headers to Ironforge requests
       window.fetch = function(...args) {
-        let [url, options] = args;
+        let [url, options = {}] = args;
         
-        // Replace Ironforge RPC with Helius
+        // Add CORS headers to Ironforge RPC requests
         if (typeof url === 'string' && url.includes('rpc.ironforge.network')) {
-          const originalUrl = url;
-          url = 'https://mainnet.helius-rpc.com/?api-key=fe38382c-4a26-4459-b240-f25ce8c317bb';
-          console.log('🔄 FETCH OVERRIDE: Ironforge → Helius');
-          console.log('   Original:', originalUrl.substring(0, 60));
-          console.log('   New:', url.substring(0, 60));
+          console.log('🔄 ADDING CORS HEADERS to Ironforge request');
+          
+          // Ensure headers object exists
+          if (!options.headers) {
+            options.headers = {};
+          }
+          
+          // Add headers to make request look like it's from browser
+          const headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers);
+          headers.set('Origin', 'https://exponent.finance');
+          headers.set('Referer', 'https://exponent.finance/');
+          headers.set('Accept', 'application/json, text/plain, */*');
+          headers.set('Accept-Language', 'en-US,en;q=0.9');
+          
+          options.headers = headers;
+          console.log('   ✅ Headers added to Ironforge request');
         }
         
-        // Call original fetch with modified URL
+        // Call original fetch with modified options
         return originalFetch(url, options);
       };
       
-      console.log('✅ Fetch API override installed');
+      console.log('✅ Fetch API override with CORS headers installed');
     });
     
     // Hide webdriver property
@@ -194,35 +205,32 @@ export async function scrapeAllExponentAssets() {
     const apiResponses = [];
     const heliusResponses = [];
     
-    // ========== SOLUTION 2: REQUEST INTERCEPTION (BACKUP) ==========
-    console.log('🔧 Enabling Puppeteer request interception as backup...');
+    // ========== SOLUTION 2: REQUEST INTERCEPTION (ADD HEADERS ONLY) ==========
+    console.log('🔧 Enabling Puppeteer request interception to add headers...');
     await page.setRequestInterception(true);
     
     page.on('request', request => {
       const url = request.url();
       
-      // Replace Ironforge RPC with Helius (backup to fetch override)
+      // Add CORS headers to Ironforge requests (backup to fetch override)
       if (url.includes('rpc.ironforge.network')) {
-        console.log(`  🔄 PUPPETEER INTERCEPT: Ironforge RPC call (backup)`);
+        console.log(`  🔄 PUPPETEER INTERCEPT: Adding headers to Ironforge request`);
         
-        const newUrl = 'https://mainnet.helius-rpc.com/?api-key=fe38382c-4a26-4459-b240-f25ce8c317bb';
-        
-        // Get the POST data (contains the actual RPC method/params)
-        const postData = request.postData();
+        // Get existing headers and add CORS headers
+        const headers = {
+          ...request.headers(),
+          'Origin': 'https://exponent.finance',
+          'Referer': 'https://exponent.finance/',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Content-Type': 'application/json',
+        };
         
         request.continue({
-          url: newUrl,
-          method: request.method(),
-          postData: postData,
-          headers: {
-            ...request.headers(),
-            'Content-Type': 'application/json',
-            'Origin': 'https://www.exponent.finance',
-            'Referer': 'https://www.exponent.finance/'
-          }
+          headers,
         });
       } else if (url.includes('helius-rpc.com')) {
-        // Log Helius requests (our replacement)
+        // Skip Helius logging for now (we're not using it)
         console.log(`  ✅ Helius RPC Request: ${request.method()}`);
         request.continue();
       } else {
@@ -240,15 +248,15 @@ export async function scrapeAllExponentAssets() {
         const url = response.url();
         const status = response.status();
         
-        // Track Helius responses (our successful replacements!)
-        if (url.includes('helius-rpc.com')) {
-          console.log(`  ✅ Helius Response: ${status} ${status === 200 ? '(SUCCESS!)' : '(FAILED)'}`);
+        // Track Ironforge responses (test if headers help with 403)
+        if (url.includes('rpc.ironforge.network')) {
+          console.log(`  📥 Ironforge Response: ${status} ${status === 200 ? '(SUCCESS!)' : status === 403 ? '(FORBIDDEN - headers did not help)' : '(FAILED)'}`);
           
           const contentType = response.headers()['content-type'] || '';
           if (contentType.includes('json')) {
             try {
               const data = await response.json();
-              heliusResponses.push({
+              solanaResponses.push({
                 url: url,
                 status: status,
                 data: data,
@@ -266,30 +274,13 @@ export async function scrapeAllExponentAssets() {
                 console.log(`     ❌ RPC Error: ${dataStr.substring(0, 100)}`);
               }
             } catch (jsonError) {
-              console.log(`     ⚠️  Could not parse Helius JSON: ${jsonError.message}`);
+              console.log(`     ⚠️  Could not parse Ironforge JSON: ${jsonError.message}`);
             }
           }
         }
-        // Track failed Ironforge responses (should not happen if override works)
-        else if (url.includes('rpc.ironforge.network')) {
-          if (status === 403) {
-            console.log(`  ⚠️  IRONFORGE 403 - Override may have failed!`);
-          }
-          
-          const contentType = response.headers()['content-type'] || '';
-          if (contentType.includes('json')) {
-            try {
-              const data = await response.json();
-              solanaResponses.push({
-                url: url,
-                status: status,
-                data: data,
-                timestamp: new Date().toISOString()
-              });
-            } catch (jsonError) {
-              // Ignore
-            }
-          }
+        // Track Helius responses (not used anymore)
+        else if (url.includes('helius-rpc.com')) {
+          console.log(`  ⚠️  Unexpected Helius response (should be using Ironforge now)`);
         }
         // Check for Exponent API calls
         else if (url.includes('api.exponent') || url.includes('exponent.finance/api')) {
@@ -505,16 +496,16 @@ export async function scrapeAllExponentAssets() {
     
     // ========== Network Request Summary ==========
     console.log('\n📊 Network Request Summary:');
-    console.log(`   ✅ Helius (SUCCESS) responses: ${heliusResponses.length}`);
-    console.log(`   ⚠️  Ironforge (FAILED) responses: ${solanaResponses.length}`);
+    console.log(`   📥 Ironforge responses: ${solanaResponses.length}`);
     console.log(`   📡 Exponent API responses: ${apiResponses.length}`);
     
-    if (heliusResponses.length > 0) {
-      console.log('\n   🎯 Helius RPC Responses (Our Replacements):');
+    if (solanaResponses.length > 0) {
+      console.log('\n   🎯 Ironforge RPC Responses (Testing CORS Headers):');
       let successCount = 0;
       let errorCount = 0;
+      let forbiddenCount = 0;
       
-      heliusResponses.forEach((resp, idx) => {
+      solanaResponses.forEach((resp, idx) => {
         if (resp.status === 200) {
           successCount++;
           const dataStr = JSON.stringify(resp.data);
@@ -523,25 +514,26 @@ export async function scrapeAllExponentAssets() {
           } else {
             console.log(`     ${idx + 1}. ✅ 200 OK but minimal data (${dataStr.length} bytes)`);
           }
+        } else if (resp.status === 403) {
+          forbiddenCount++;
+          console.log(`     ${idx + 1}. ❌ Status 403 FORBIDDEN`);
         } else {
           errorCount++;
           console.log(`     ${idx + 1}. ❌ Status ${resp.status}`);
         }
       });
       
-      console.log(`   📊 Summary: ${successCount} successful, ${errorCount} failed`);
+      console.log(`   📊 Summary: ${successCount} successful, ${forbiddenCount} forbidden (403), ${errorCount} other errors`);
       
       if (successCount > 0) {
-        console.log('   🎉 RPC OVERRIDE WORKING! Blockchain data received!');
+        console.log('   🎉 CORS HEADERS WORKING! Ironforge accepts requests with proper headers!');
+      } else if (forbiddenCount > 0) {
+        console.log('   ❌ CORS HEADERS NOT ENOUGH - Ironforge still blocking with 403. Need proxy solution.');
       } else {
-        console.log('   ⚠️  No successful RPC responses - calculations may fail');
+        console.log('   ⚠️  Different error - not a blocking issue');
       }
     } else {
-      console.log('   ❌ NO HELIUS RESPONSES - Override may not be working!');
-    }
-    
-    if (solanaResponses.length > 0) {
-      console.log(`\n   ⚠️  ${solanaResponses.length} Ironforge responses detected (override didn't catch these)`);
+      console.log('   ❌ NO IRONFORGE RESPONSES - Something wrong with monitoring!');
     }
     
     if (apiResponses.length > 0) {

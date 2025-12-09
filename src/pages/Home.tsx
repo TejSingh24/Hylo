@@ -16,10 +16,10 @@ const Home: React.FC = () => {
         {/* Hero Section */}
         <div className="home-hero">
           <h1 className="home-title">
-            Hylo-RateX Yield Toolkit
+            Hylo Community Toolkit
           </h1>
           <p className="home-subtitle">
-            Comprehensive tools for analyzing and calculating yields/points for all Rate-X available tokens
+            Comprehensive tools for analyzing and calculating yields/points for all Exponent/Rate-X available tokens
           </p>
         </div>
 
@@ -66,7 +66,7 @@ const Home: React.FC = () => {
               <h2 className="home-card-title">YT Yield/Point Calculator</h2>
               <p className="home-card-description">
                 Calculate expected yield returns or points for your leveraged yield token positions. 
-                Enter parameters manually or fetch live data from Rate-X.
+                Enter parameters manually or fetch live data from Exponent/Rate-X.
               </p>
               <ul className="home-card-features">
                 <li>

@@ -409,14 +409,16 @@ export async function scrapeAllExponentAssets() {
             };
             
             // Extract Leverage (Effective Exposure)
-            const leverageMatch = cardText.match(/Effective\s+Exposure[^\d∞]*([\d.]+|∞)\s*x/i);
+            // Match numbers with optional commas (e.g., 1,413.84x)
+            const leverageMatch = cardText.match(/Effective\s+Exposure[^\d∞]*([\d,.]+|∞)\s*x/i);
             if (leverageMatch) {
               const leverageStr = leverageMatch[1];
               if (leverageStr === '∞') {
                 console.warn(`  ⚠️  ${fullAssetName}: Leverage still showing ∞x (data not loaded)`);
                 result.leverage = null;
               } else {
-                result.leverage = parseFloat(leverageStr);
+                // Remove commas before parsing (e.g., "1,413.84" -> "1413.84")
+                result.leverage = parseFloat(leverageStr.replace(/,/g, ''));
               }
             }
             

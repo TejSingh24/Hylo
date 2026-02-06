@@ -62,13 +62,23 @@ const XSolMetrics: React.FC = () => {
     };
   };
 
+  // Format number with commas (e.g., 18000000 -> 18,000,000)
+  const formatWithCommas = (num: number): string => {
+    return Math.round(num).toLocaleString('en-US');
+  };
+
+  // Parse number string that may contain commas
+  const parseWithCommas = (str: string): number => {
+    return parseFloat(str.replace(/,/g, '')) || 0;
+  };
+
   // Format value for editing based on field type
   const formatValueForEdit = (field: EditableField, value: number | undefined): string => {
     if (value === undefined || value === null) return '0';
     
-    // For supply fields, show as integer (no decimals)
+    // For supply fields, show as integer with commas (e.g., 18,000,000)
     if (field === 'xSOL_supply' || field === 'HYusd_supply') {
-      return Math.round(value).toString();
+      return formatWithCommas(value);
     }
     
     // For price fields, show 3 significant decimal digits
@@ -116,7 +126,9 @@ const XSolMetrics: React.FC = () => {
   const confirmEdit = () => {
     if (!metrics || !editingField) return;
 
-    const newValue = parseFloat(editValue) || 0;
+    // Parse value - handle commas for supply fields
+    const isSupplyField = editingField === 'xSOL_supply' || editingField === 'HYusd_supply';
+    const newValue = isSupplyField ? parseWithCommas(editValue) : (parseFloat(editValue) || 0);
     const updatedMetrics = { ...metrics, [editingField]: newValue };
     const recalculated = recalculateMetrics(updatedMetrics);
     
@@ -555,12 +567,20 @@ const XSolMetrics: React.FC = () => {
             {editingField === 'xSOL_supply' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input
-                  type="number"
+                  type="text"
                   value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
+                  onChange={(e) => {
+                    // Allow only digits and commas, then reformat
+                    const raw = e.target.value.replace(/[^0-9]/g, '');
+                    if (raw) {
+                      setEditValue(parseInt(raw, 10).toLocaleString('en-US'));
+                    } else {
+                      setEditValue('');
+                    }
+                  }}
                   onKeyDown={handleEditKeyPress}
                   autoFocus
-                  placeholder="Enter full number"
+                  placeholder="e.g., 18,000,000"
                   style={{
                     flex: 1,
                     padding: '0.25rem 0.5rem',
@@ -614,9 +634,17 @@ const XSolMetrics: React.FC = () => {
             {editingField === 'HYusd_supply' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input
-                  type="number"
+                  type="text"
                   value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
+                  onChange={(e) => {
+                    // Allow only digits and commas, then reformat
+                    const raw = e.target.value.replace(/[^0-9]/g, '');
+                    if (raw) {
+                      setEditValue(parseInt(raw, 10).toLocaleString('en-US'));
+                    } else {
+                      setEditValue('');
+                    }
+                  }}
                   onKeyDown={handleEditKeyPress}
                   autoFocus
                   placeholder="Enter full number"

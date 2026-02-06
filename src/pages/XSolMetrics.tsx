@@ -144,12 +144,13 @@ const XSolMetrics: React.FC = () => {
             borderLeft: '3px solid #10b981',
           }}>
             <div style={{
-              fontSize: '0.7rem',
+              fontSize: '0.65rem',
               fontWeight: '700',
               color: 'rgba(209, 213, 219, 0.85)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               marginBottom: '0.5rem',
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
             }}>
               EFFECTIVE LEVERAGE
             </div>
@@ -171,12 +172,13 @@ const XSolMetrics: React.FC = () => {
             borderLeft: '3px solid #06b6d4',
           }}>
             <div style={{
-              fontSize: '0.7rem',
+              fontSize: '0.65rem',
               fontWeight: '700',
               color: 'rgba(209, 213, 219, 0.85)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               marginBottom: '0.5rem',
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
             }}>
               xSOL PRICE
             </div>
@@ -198,12 +200,13 @@ const XSolMetrics: React.FC = () => {
             borderLeft: '3px solid #06b6d4',
           }}>
             <div style={{
-              fontSize: '0.7rem',
+              fontSize: '0.65rem',
               fontWeight: '700',
               color: 'rgba(209, 213, 219, 0.85)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               marginBottom: '0.5rem',
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
             }}>
               SOL PRICE
             </div>
@@ -235,12 +238,13 @@ const XSolMetrics: React.FC = () => {
             borderLeft: '3px solid #8b5cf6',
           }}>
             <div style={{
-              fontSize: '0.7rem',
+              fontSize: '0.65rem',
               fontWeight: '700',
               color: 'rgba(209, 213, 219, 0.85)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               marginBottom: '0.5rem',
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
             }}>
               COLLATERAL TVL (SOL)
             </div>
@@ -262,12 +266,13 @@ const XSolMetrics: React.FC = () => {
             borderLeft: '3px solid #f59e0b',
           }}>
             <div style={{
-              fontSize: '0.7rem',
+              fontSize: '0.65rem',
               fontWeight: '700',
               color: 'rgba(209, 213, 219, 0.85)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               marginBottom: '0.5rem',
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
             }}>
               COLLATERAL RATIO
             </div>

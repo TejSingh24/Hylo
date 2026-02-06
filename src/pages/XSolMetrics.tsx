@@ -60,12 +60,13 @@ const XSolMetrics: React.FC = () => {
   };
 
   return (
-    <div className="dashboard-container" style={{
+    <div className="dashboard-page" style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
       paddingTop: '6rem',
       paddingBottom: '4rem',
     }}>
+      <div className="dashboard-container">
       {/* Page Header */}
       <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
         <h1 style={{
@@ -491,6 +492,7 @@ const XSolMetrics: React.FC = () => {
             Loading metrics...
           </div>
         )}
+      </div>
       </div>
     </div>
   );

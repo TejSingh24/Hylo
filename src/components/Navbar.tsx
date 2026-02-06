@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BarChart3, Calculator } from 'lucide-react';
+import { Home, BarChart3, Calculator, TrendingUp } from 'lucide-react';
 import './Dashboard.css';
 
 const Navbar: React.FC = () => {
@@ -72,6 +72,14 @@ const Navbar: React.FC = () => {
               <Calculator size={18} />
               <span>Yield Calculator</span>
             </Link>
+
+            <Link 
+              to="/xsol-metrics" 
+              className={`navbar-link ${isActive('/xsol-metrics') ? 'navbar-link-active' : ''}`}
+            >
+              <TrendingUp size={18} />
+              <span>xSOL Metrics</span>
+            </Link>
           </div>
 
           {/* Hamburger Button (Mobile Only) */}
@@ -114,6 +122,15 @@ const Navbar: React.FC = () => {
         >
           <Calculator size={24} />
           <span>Yield Calculator</span>
+        </Link>
+
+        <Link 
+          to="/xsol-metrics" 
+          className={`navbar-link ${isActive('/xsol-metrics') ? 'navbar-link-active' : ''}`}
+          onClick={closeMobileMenu}
+        >
+          <TrendingUp size={24} />
+          <span>xSOL Metrics</span>
         </Link>
       </div>
     </>

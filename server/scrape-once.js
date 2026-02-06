@@ -1,5 +1,6 @@
 import { scrapeAllAssets, scrapeDetailPages, scrapeExponentDetailPages, fetchExistingGistData, calculateMaturesIn, calculateYtMetrics, calculateDaysToMaturity } from './scraper.js';
 import { scrapeAllExponentAssets } from './scraper-exponent.js';
+import { fetchXSolMetricsPhase0 } from './scraper-xsol-phase0.js';
 import puppeteerCore from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import { chmod } from 'fs/promises';
@@ -42,13 +43,27 @@ async function updateGist(gistId, data, token) {
 
 async function main() {
   let browser;
+  let xsolMetricsData = null; // Store Phase 0 data to include in final Gist
   
   try {
-    console.log('🚀 Starting RateX scraper (Two-Phase)...');
+    console.log('🚀 Starting RateX scraper (Phase 0 + Two-Phase)...');
     console.log(`⏰ Time: ${new Date().toISOString()}`);
     
+    // ========== PHASE 0: xSOL Metrics (runs before browser launch) ==========
+    try {
+      xsolMetricsData = await fetchXSolMetricsPhase0();
+      if (xsolMetricsData) {
+        console.log('✅ Phase 0 complete - xSOL metrics ready');
+      } else {
+        console.warn('⚠️ Phase 0 returned null - continuing without xSOL metrics');
+      }
+    } catch (phase0Error) {
+      console.error('⚠️ Phase 0 failed:', phase0Error.message);
+      console.log('   Continuing with Phase 1 and 2...');
+    }
+    
     // ========== STEP 1: Fetch Existing Gist Data ==========
-    console.log('\n� STEP 1: Fetching existing Gist data...');
+    console.log('\n📥 STEP 1: Fetching existing Gist data...');
     const existingGistData = await fetchExistingGistData();
     
     // ========== STEP 2: Launch Browser ==========
@@ -332,7 +347,8 @@ async function main() {
       lastUpdated: phase1Timestamp,
       phase: 1,
       assetsCount: phase1MergedData.length,
-      assets: phase1MergedData
+      assets: phase1MergedData,
+      xsolMetrics: xsolMetricsData || null
     };
     
     await updateGist(GIST_ID, phase1GistData, GIST_TOKEN);
@@ -419,13 +435,14 @@ async function main() {
       console.log(`   Exponent YT-hyloSOL-10DEC25: leverage=${finalExponentHyloSOL.leverage}, impliedYield=${finalExponentHyloSOL.impliedYield}, apy=${finalExponentHyloSOL.apy}, source=${finalExponentHyloSOL.source}`);
     }
     
-    // ========== Update Gist (Phase 2) ==========
-    console.log('\n📤 Updating Gist with Phase 2 complete data...');
+    // ========== Update Gist (Phase 2 + Phase 0 xSOL Metrics) ==========
+    console.log('\n📤 Updating Gist with Phase 2 complete data + xSOL metrics...');
     const phase2Timestamp = {
       lastUpdated: new Date().toISOString(),
       phase: 2,
       assetsCount: phase2FinalData.length,
-      assets: phase2FinalData
+      assets: phase2FinalData,
+      xsolMetrics: xsolMetricsData || null
     };
     
     await updateGist(GIST_ID, phase2Timestamp, GIST_TOKEN);

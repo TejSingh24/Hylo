@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BarChart3, Calculator } from 'lucide-react';
+import { Home, BarChart3, Calculator, TrendingUp } from 'lucide-react';
 import './Dashboard.css';
+
+const GIST_RAW_URL = 'https://gist.githubusercontent.com/TejSingh24/d3a1db6fc79e168cf5dff8d3a2c11706/raw/ratex-assets.json';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [xsolIconUrl, setXsolIconUrl] = useState<string | null>(null);
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -18,6 +21,25 @@ const Navbar: React.FC = () => {
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
   };
+
+  // Fetch xSOL icon URL from Gist
+  useEffect(() => {
+    const fetchXsolIcon = async () => {
+      try {
+        const response = await fetch(GIST_RAW_URL, { cache: 'no-cache' });
+        if (response.ok) {
+          const data = await response.json();
+          const xsolAsset = data.assets?.find((a: { baseAsset?: string }) => a.baseAsset === 'xSOL');
+          if (xsolAsset?.assetSymbolImage) {
+            setXsolIconUrl(xsolAsset.assetSymbolImage);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch xSOL icon:', error);
+      }
+    };
+    fetchXsolIcon();
+  }, []);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -66,6 +88,18 @@ const Navbar: React.FC = () => {
             </Link>
 
             <Link 
+              to="/xsol-metrics" 
+              className={`navbar-link ${isActive('/xsol-metrics') ? 'navbar-link-active' : ''}`}
+            >
+              {xsolIconUrl ? (
+                <img src={xsolIconUrl} alt="xSOL" style={{ width: 18, height: 18, borderRadius: '50%' }} />
+              ) : (
+                <TrendingUp size={18} />
+              )}
+              <span>xSOL Metrics</span>
+            </Link>
+
+            <Link 
               to="/calculator" 
               className={`navbar-link ${isActive('/calculator') ? 'navbar-link-active' : ''}`}
             >
@@ -105,6 +139,19 @@ const Navbar: React.FC = () => {
         >
           <BarChart3 size={24} />
           <span>Strategy Dashboard</span>
+        </Link>
+
+        <Link 
+          to="/xsol-metrics" 
+          className={`navbar-link ${isActive('/xsol-metrics') ? 'navbar-link-active' : ''}`}
+          onClick={closeMobileMenu}
+        >
+          {xsolIconUrl ? (
+            <img src={xsolIconUrl} alt="xSOL" style={{ width: 24, height: 24, borderRadius: '50%' }} />
+          ) : (
+            <TrendingUp size={24} />
+          )}
+          <span>xSOL Metrics</span>
         </Link>
 
         <Link 

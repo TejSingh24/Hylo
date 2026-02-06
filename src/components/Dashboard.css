@@ -383,6 +383,21 @@
   border-top: 3px solid #06b6d4;
 }
 
+.home-card-xsol {
+  border-top: 3px solid #10b981;
+}
+
+.home-cards-centered {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4rem;
+}
+
+.home-cards-centered .home-card {
+  max-width: 500px;
+  width: 100%;
+}
+
 .home-card-icon {
   width: 64px;
   height: 64px;

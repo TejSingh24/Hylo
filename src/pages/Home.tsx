@@ -1,13 +1,36 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Calculator, ArrowRight, TrendingUp, Shield } from 'lucide-react';
+import { BarChart3, Calculator, ArrowRight, TrendingUp, Shield, DollarSign, Activity } from 'lucide-react';
 import { checkAndRefreshIfStale } from '../services/ratexApi';
 import '../components/Dashboard.css';
 
+const GIST_RAW_URL = 'https://gist.githubusercontent.com/TejSingh24/d3a1db6fc79e168cf5dff8d3a2c11706/raw/ratex-assets.json';
+
 const Home: React.FC = () => {
+  const [xsolIconUrl, setXsolIconUrl] = useState<string | null>(null);
+
   // Check data freshness on mount
   useEffect(() => {
     checkAndRefreshIfStale();
+  }, []);
+
+  // Fetch xSOL icon URL from Gist
+  useEffect(() => {
+    const fetchXsolIcon = async () => {
+      try {
+        const response = await fetch(GIST_RAW_URL, { cache: 'no-cache' });
+        if (response.ok) {
+          const data = await response.json();
+          const xsolAsset = data.assets?.find((a: { baseAsset?: string }) => a.baseAsset === 'xSOL');
+          if (xsolAsset?.assetSymbolImage) {
+            setXsolIconUrl(xsolAsset.assetSymbolImage);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch xSOL icon:', error);
+      }
+    };
+    fetchXsolIcon();
   }, []);
 
   return (
@@ -23,7 +46,7 @@ const Home: React.FC = () => {
           </p>
         </div>
 
-        {/* Navigation Cards */}
+        {/* Navigation Cards - Row 1: Dashboard + xSOL Metrics */}
         <div className="home-cards">
           {/* Strategy Dashboard Card */}
           <Link to="/dashboard" className="home-card home-card-dashboard">
@@ -57,6 +80,45 @@ const Home: React.FC = () => {
             </div>
           </Link>
 
+          {/* xSOL Metrics Card */}
+          <Link to="/xsol-metrics" className="home-card home-card-xsol">
+            <div className="home-card-icon">
+              {xsolIconUrl ? (
+                <img src={xsolIconUrl} alt="xSOL" style={{ width: 48, height: 48, borderRadius: '50%' }} />
+              ) : (
+                <TrendingUp size={48} />
+              )}
+            </div>
+            <div className="home-card-content">
+              <h2 className="home-card-title">xSOL Metrics & Break-Even</h2>
+              <p className="home-card-description">
+                Track real-time xSOL protocol metrics including collateral ratio, 
+                effective leverage, and calculate your break-even price.
+              </p>
+              <ul className="home-card-features">
+                <li>
+                  <Activity size={16} />
+                  <span>Live protocol metrics from blockchain</span>
+                </li>
+                <li>
+                  <DollarSign size={16} />
+                  <span>Real-time xSOL & SOL prices</span>
+                </li>
+                <li>
+                  <Calculator size={16} />
+                  <span>Break-even price calculator</span>
+                </li>
+              </ul>
+            </div>
+            <div className="home-card-action">
+              <span>View Metrics</span>
+              <ArrowRight size={20} />
+            </div>
+          </Link>
+        </div>
+
+        {/* Navigation Cards - Row 2: Calculator (Centered) */}
+        <div className="home-cards home-cards-centered">
           {/* Yield Calculator Card */}
           <Link to="/calculator" className="home-card home-card-calculator">
             <div className="home-card-icon">

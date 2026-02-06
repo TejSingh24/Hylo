@@ -101,9 +101,9 @@ export async function fetchXSolMetricsFromGist(): Promise<BreakEvenData> {
  * 
  * Formula: xSOL_be_p = ((xSOL_buy_p × xSOL_supply) + HYusd_supply) / Collateral_TVL_SOL
  * 
- * @param xSOL_buy_p - User's xSOL purchase price (in SOL)
+ * @param xSOL_buy_p - User's xSOL purchase price (in USD)
  * @param metrics - xSOL metrics from Gist
- * @returns Break-even price in SOL
+ * @returns Break-even price in USD
  */
 export function calculateXSolBreakEvenPrice(
   xSOL_buy_p: number,

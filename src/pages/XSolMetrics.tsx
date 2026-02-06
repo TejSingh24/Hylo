@@ -126,12 +126,12 @@ const XSolMetrics: React.FC = () => {
         boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
         padding: '2rem',
       }}>
-        {/* Metrics Grid */}
+        {/* Metrics Grid - Row 1: 3 boxes */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '1rem',
-          marginBottom: '2rem',
+          marginBottom: '1rem',
           opacity: isLoading ? 0.5 : 1,
           transition: 'opacity 0.3s ease',
         }}>
@@ -215,7 +215,17 @@ const XSolMetrics: React.FC = () => {
               ${formatXSolPrice(metrics?.SOL_price)}
             </div>
           </div>
+        </div>
 
+        {/* Metrics Grid - Row 2: 2 boxes */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '1rem',
+          marginBottom: '2rem',
+          opacity: isLoading ? 0.5 : 1,
+          transition: 'opacity 0.3s ease',
+        }}>
           {/* Collateral TVL (SOL) */}
           <div style={{
             background: 'rgba(15, 23, 42, 0.6)',
@@ -383,7 +393,7 @@ const XSolMetrics: React.FC = () => {
               color: 'rgba(226, 232, 240, 0.9)',
               marginBottom: '0.5rem',
             }}>
-              xSOL Purchase Price (SOL)
+              xSOL Purchase Price (USD)
             </label>
             <input
               id="xsol-purchase-price"
@@ -412,7 +422,7 @@ const XSolMetrics: React.FC = () => {
               color: 'rgba(226, 232, 240, 0.5)',
               marginTop: '0.5rem',
             }}>
-              💡 Enter the price you paid for xSOL in SOL terms
+              💡 Enter the price you paid for xSOL in USD
             </p>
           </div>
 
@@ -430,7 +440,7 @@ const XSolMetrics: React.FC = () => {
               fontWeight: '500',
               marginBottom: '0.5rem',
             }}>
-              xSOL Break-Even Price (SOL)
+              xSOL Break-Even Price (USD)
             </p>
             <p style={{
               fontSize: '2.5rem',
@@ -447,7 +457,7 @@ const XSolMetrics: React.FC = () => {
               color: 'rgba(226, 232, 240, 0.5)',
               marginTop: '0.75rem',
             }}>
-              The SOL price at which you break even on your xSOL position
+              The xSOL price in USD at which you break even on your position
             </p>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Pencil, Check, X, RefreshCw } from 'lucide-react';
 import '../App.css';
 import '../components/Dashboard.css';
 import { 
@@ -10,14 +10,145 @@ import {
   type XSolMetrics as XSolMetricsData 
 } from '../services/xsolMetricsApi';
 
+// Editable field type
+type EditableField = 'xSOL_price' | 'SOL_price' | 'xSOL_supply' | 'HYusd_supply' | null;
+
 const XSolMetrics: React.FC = () => {
   const [metrics, setMetrics] = useState<XSolMetricsData | null>(null);
+  const [originalMetrics, setOriginalMetrics] = useState<XSolMetricsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [xsolIconUrl, setXsolIconUrl] = useState<string | null>(null);
   
   const [xSOL_buy_p, setXSOL_buy_p] = useState<string>('0');
   const [breakEvenPrice, setBreakEvenPrice] = useState<number>(0);
+
+  // Editable fields state
+  const [editingField, setEditingField] = useState<EditableField>(null);
+  const [editValue, setEditValue] = useState<string>('');
+  const [isCustomValues, setIsCustomValues] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+
+  // Format time ago
+  const formatTimeAgo = (dateString: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${Math.floor(diffHours / 24)}d ago`;
+  };
+
+  // Recalculate derived metrics when base values change
+  const recalculateMetrics = (updatedMetrics: XSolMetricsData): XSolMetricsData => {
+    const { xSOL_supply, HYusd_supply, xSOL_price, SOL_price } = updatedMetrics;
+    
+    const Collateral_TVL = HYusd_supply + (xSOL_price * xSOL_supply);
+    const Collateral_TVL_SOL = SOL_price > 0 ? Collateral_TVL / SOL_price : 0;
+    const Effective_Leverage = (xSOL_price * xSOL_supply) > 0 ? Collateral_TVL / (xSOL_price * xSOL_supply) : 0;
+    const CollateralRatio = HYusd_supply > 0 ? Collateral_TVL / HYusd_supply : 0;
+
+    return {
+      ...updatedMetrics,
+      Collateral_TVL,
+      Collateral_TVL_SOL,
+      Effective_Leverage,
+      CollateralRatio,
+    };
+  };
+
+  // Format value for editing based on field type
+  const formatValueForEdit = (field: EditableField, value: number | undefined): string => {
+    if (value === undefined || value === null) return '0';
+    
+    // For supply fields, show as integer (no decimals)
+    if (field === 'xSOL_supply' || field === 'HYusd_supply') {
+      return Math.round(value).toString();
+    }
+    
+    // For price fields, show 3 significant decimal digits
+    // Find first non-zero decimal position and show 3 digits from there
+    if (value === 0) return '0';
+    
+    const absValue = Math.abs(value);
+    if (absValue >= 1) {
+      // For values >= 1, just use 3 decimal places
+      return value.toFixed(3);
+    } else {
+      // For values < 1, find first non-zero decimal and show 3 digits from there
+      const str = value.toFixed(10);
+      const decimalIndex = str.indexOf('.');
+      let firstNonZero = -1;
+      
+      for (let i = decimalIndex + 1; i < str.length; i++) {
+        if (str[i] !== '0') {
+          firstNonZero = i - decimalIndex;
+          break;
+        }
+      }
+      
+      if (firstNonZero === -1) return '0';
+      
+      // Show from first non-zero digit plus 2 more (3 total)
+      const precision = firstNonZero + 2;
+      return value.toFixed(precision);
+    }
+  };
+
+  // Handle starting edit
+  const startEdit = (field: EditableField, currentValue: number | undefined) => {
+    setEditingField(field);
+    setEditValue(formatValueForEdit(field, currentValue));
+  };
+
+  // Handle canceling edit
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  // Handle confirming edit
+  const confirmEdit = () => {
+    if (!metrics || !editingField) return;
+
+    const newValue = parseFloat(editValue) || 0;
+    const updatedMetrics = { ...metrics, [editingField]: newValue };
+    const recalculated = recalculateMetrics(updatedMetrics);
+    
+    setMetrics(recalculated);
+    setIsCustomValues(true);
+    
+    // Recalculate break-even price
+    const bePrice = calculateXSolBreakEvenPrice(parseFloat(xSOL_buy_p) || 0, recalculated);
+    setBreakEvenPrice(bePrice);
+    
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  // Handle key press in edit input
+  const handleEditKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      confirmEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  };
+
+  // Reset to original values from Gist
+  const resetToOriginal = () => {
+    if (originalMetrics) {
+      setMetrics(originalMetrics);
+      setIsCustomValues(false);
+      const bePrice = calculateXSolBreakEvenPrice(parseFloat(xSOL_buy_p) || 0, originalMetrics);
+      setBreakEvenPrice(bePrice);
+    }
+  };
 
   // Fetch metrics on mount
   useEffect(() => {
@@ -27,6 +158,8 @@ const XSolMetrics: React.FC = () => {
       
       if (data.metrics) {
         setMetrics(data.metrics);
+        setOriginalMetrics(data.metrics);
+        setLastUpdated(data.metrics.lastFetched || '');
         // Calculate initial break-even price with default purchase price (0)
         const bePrice = calculateXSolBreakEvenPrice(0, data.metrics);
         setBreakEvenPrice(bePrice);
@@ -95,9 +228,40 @@ const XSolMetrics: React.FC = () => {
         <p style={{
           color: 'rgba(203, 213, 225, 0.8)',
           fontSize: '1rem',
+          marginBottom: '0.75rem',
         }}>
           Real-time protocol metrics and break-even price calculator
         </p>
+        
+        {/* Last Updated / Custom Values Banner */}
+        {isCustomValues ? (
+          <div 
+            onClick={resetToOriginal}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.5rem 1rem',
+              background: 'rgba(251, 191, 36, 0.15)',
+              border: '1px solid rgba(251, 191, 36, 0.4)',
+              borderRadius: '0.5rem',
+              color: '#fbbf24',
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            ⚠️ Using custom values. Click to reset
+            <RefreshCw size={16} />
+          </div>
+        ) : (
+          <div style={{
+            color: 'rgba(148, 163, 184, 0.7)',
+            fontSize: '0.875rem',
+          }}>
+            Last updated: {formatTimeAgo(lastUpdated)}
+          </div>
+        )}
       </div>
 
       {/* Error Message */}
@@ -164,7 +328,7 @@ const XSolMetrics: React.FC = () => {
             </div>
           </div>
 
-          {/* xSOL Price */}
+          {/* xSOL Price - Editable */}
           <div style={{
             background: 'rgba(15, 23, 42, 0.6)',
             borderRadius: '10px',
@@ -180,19 +344,53 @@ const XSolMetrics: React.FC = () => {
               letterSpacing: '0.05em',
               marginBottom: '0.5rem',
               textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}>
               xSOL PRICE
+              {editingField !== 'xSOL_price' && (
+                <Pencil 
+                  size={12} 
+                  style={{ cursor: 'pointer', opacity: 0.6 }}
+                  onClick={() => startEdit('xSOL_price', metrics?.xSOL_price)}
+                />
+              )}
             </div>
-            <div style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#ffffff',
-            }}>
-              ${formatXSolPrice(metrics?.xSOL_price)}
-            </div>
+            {editingField === 'xSOL_price' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="number"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={handleEditKeyPress}
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    padding: '0.25rem 0.5rem',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(6, 182, 212, 0.5)',
+                    borderRadius: '4px',
+                    color: 'white',
+                    fontSize: '1.25rem',
+                    fontWeight: '700',
+                  }}
+                />
+                <Check size={18} style={{ color: '#10b981', cursor: 'pointer' }} onClick={confirmEdit} />
+                <X size={18} style={{ color: '#ef4444', cursor: 'pointer' }} onClick={cancelEdit} />
+              </div>
+            ) : (
+              <div style={{
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                color: '#ffffff',
+              }}>
+                ${formatXSolPrice(metrics?.xSOL_price)}
+              </div>
+            )}
           </div>
 
-          {/* SOL Price */}
+          {/* SOL Price - Editable */}
           <div style={{
             background: 'rgba(15, 23, 42, 0.6)',
             borderRadius: '10px',
@@ -208,16 +406,50 @@ const XSolMetrics: React.FC = () => {
               letterSpacing: '0.05em',
               marginBottom: '0.5rem',
               textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}>
               SOL PRICE
+              {editingField !== 'SOL_price' && (
+                <Pencil 
+                  size={12} 
+                  style={{ cursor: 'pointer', opacity: 0.6 }}
+                  onClick={() => startEdit('SOL_price', metrics?.SOL_price)}
+                />
+              )}
             </div>
-            <div style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#ffffff',
-            }}>
-              ${formatXSolPrice(metrics?.SOL_price)}
-            </div>
+            {editingField === 'SOL_price' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="number"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={handleEditKeyPress}
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    padding: '0.25rem 0.5rem',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(6, 182, 212, 0.5)',
+                    borderRadius: '4px',
+                    color: 'white',
+                    fontSize: '1.25rem',
+                    fontWeight: '700',
+                  }}
+                />
+                <Check size={18} style={{ color: '#10b981', cursor: 'pointer' }} onClick={confirmEdit} />
+                <X size={18} style={{ color: '#ef4444', cursor: 'pointer' }} onClick={cancelEdit} />
+              </div>
+            ) : (
+              <div style={{
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                color: '#ffffff',
+              }}>
+                ${formatXSolPrice(metrics?.SOL_price)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -295,7 +527,7 @@ const XSolMetrics: React.FC = () => {
           marginBottom: '2rem',
           opacity: isLoading ? 0.5 : 1,
         }}>
-          {/* xSOL Supply */}
+          {/* xSOL Supply - Editable */}
           <div style={{
             background: 'rgba(15, 23, 42, 0.4)',
             borderRadius: '8px',
@@ -307,19 +539,54 @@ const XSolMetrics: React.FC = () => {
               color: 'rgba(209, 213, 219, 0.7)',
               textTransform: 'uppercase',
               marginBottom: '0.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}>
               xSOL Supply
+              {editingField !== 'xSOL_supply' && (
+                <Pencil 
+                  size={10} 
+                  style={{ cursor: 'pointer', opacity: 0.6 }}
+                  onClick={() => startEdit('xSOL_supply', metrics?.xSOL_supply)}
+                />
+              )}
             </div>
-            <div style={{
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#e2e8f0',
-            }}>
-              {formatLargeNumber(metrics?.xSOL_supply ?? null)}
-            </div>
+            {editingField === 'xSOL_supply' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="number"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={handleEditKeyPress}
+                  autoFocus
+                  placeholder="Enter full number"
+                  style={{
+                    flex: 1,
+                    padding: '0.25rem 0.5rem',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(6, 182, 212, 0.5)',
+                    borderRadius: '4px',
+                    color: 'white',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                  }}
+                />
+                <Check size={16} style={{ color: '#10b981', cursor: 'pointer' }} onClick={confirmEdit} />
+                <X size={16} style={{ color: '#ef4444', cursor: 'pointer' }} onClick={cancelEdit} />
+              </div>
+            ) : (
+              <div style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                color: '#e2e8f0',
+              }}>
+                {formatLargeNumber(metrics?.xSOL_supply ?? null)}
+              </div>
+            )}
           </div>
 
-          {/* HYusd Supply */}
+          {/* HYusd Supply - Editable */}
           <div style={{
             background: 'rgba(15, 23, 42, 0.4)',
             borderRadius: '8px',
@@ -331,16 +598,51 @@ const XSolMetrics: React.FC = () => {
               color: 'rgba(209, 213, 219, 0.7)',
               textTransform: 'uppercase',
               marginBottom: '0.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}>
               HYusd Supply
+              {editingField !== 'HYusd_supply' && (
+                <Pencil 
+                  size={10} 
+                  style={{ cursor: 'pointer', opacity: 0.6 }}
+                  onClick={() => startEdit('HYusd_supply', metrics?.HYusd_supply)}
+                />
+              )}
             </div>
-            <div style={{
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#e2e8f0',
-            }}>
-              ${formatLargeNumber(metrics?.HYusd_supply ?? null)}
-            </div>
+            {editingField === 'HYusd_supply' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="number"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={handleEditKeyPress}
+                  autoFocus
+                  placeholder="Enter full number"
+                  style={{
+                    flex: 1,
+                    padding: '0.25rem 0.5rem',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(6, 182, 212, 0.5)',
+                    borderRadius: '4px',
+                    color: 'white',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                  }}
+                />
+                <Check size={16} style={{ color: '#10b981', cursor: 'pointer' }} onClick={confirmEdit} />
+                <X size={16} style={{ color: '#ef4444', cursor: 'pointer' }} onClick={cancelEdit} />
+              </div>
+            ) : (
+              <div style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                color: '#e2e8f0',
+              }}>
+                {formatLargeNumber(metrics?.HYusd_supply ?? null)}
+              </div>
+            )}
           </div>
 
           {/* Collateral TVL (USD) */}

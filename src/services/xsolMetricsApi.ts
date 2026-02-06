@@ -22,12 +22,18 @@ export interface XSolMetrics {
   source: string;
 }
 
+export interface Asset {
+  baseAsset?: string;
+  assetSymbolImage?: string;
+  [key: string]: unknown;
+}
+
 export interface GistDataWithXSol {
   lastUpdated: string;
   phase: number;
   phaseStatus?: string;
   assetsCount: number;
-  assets: unknown[];
+  assets: Asset[];
   xsolMetrics?: XSolMetrics;
 }
 
@@ -35,6 +41,7 @@ export interface BreakEvenData {
   metrics: XSolMetrics | null;
   isLoading: boolean;
   error: string | null;
+  xsolIconUrl: string | null;
 }
 
 /**
@@ -55,12 +62,18 @@ export async function fetchXSolMetricsFromGist(): Promise<BreakEvenData> {
     const gistData: GistDataWithXSol = await response.json();
     console.log('✅ Gist data loaded. Last updated:', gistData.lastUpdated);
     
+    // Find xSOL icon from any asset with baseAsset === 'xSOL'
+    const xsolAsset = gistData.assets.find(a => a.baseAsset === 'xSOL');
+    const xsolIconUrl = xsolAsset?.assetSymbolImage || null;
+    console.log('🖼️ xSOL icon URL:', xsolIconUrl || 'Not found, will use fallback');
+    
     if (!gistData.xsolMetrics) {
       console.warn('⚠️ xsolMetrics not found in Gist - Phase 0 may not have run yet');
       return {
         metrics: null,
         isLoading: false,
         error: 'xSOL metrics not available. Please try again later.',
+        xsolIconUrl,
       };
     }
 
@@ -70,6 +83,7 @@ export async function fetchXSolMetricsFromGist(): Promise<BreakEvenData> {
       metrics: gistData.xsolMetrics,
       isLoading: false,
       error: null,
+      xsolIconUrl,
     };
   } catch (error) {
     console.error('❌ Failed to fetch xSOL metrics:', error);
@@ -77,6 +91,7 @@ export async function fetchXSolMetricsFromGist(): Promise<BreakEvenData> {
       metrics: null,
       isLoading: false,
       error: error instanceof Error ? error.message : 'Failed to load xSOL metrics',
+      xsolIconUrl: null,
     };
   }
 }

@@ -14,6 +14,7 @@ const XSolMetrics: React.FC = () => {
   const [metrics, setMetrics] = useState<XSolMetricsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [xsolIconUrl, setXsolIconUrl] = useState<string | null>(null);
   
   const [xSOL_buy_p, setXSOL_buy_p] = useState<string>('0');
   const [breakEvenPrice, setBreakEvenPrice] = useState<number>(0);
@@ -31,6 +32,7 @@ const XSolMetrics: React.FC = () => {
         setBreakEvenPrice(bePrice);
       }
       
+      setXsolIconUrl(data.xsolIconUrl);
       setError(data.error);
       setIsLoading(false);
     };
@@ -78,7 +80,15 @@ const XSolMetrics: React.FC = () => {
           justifyContent: 'center',
           gap: '0.75rem',
         }}>
-          <TrendingUp size={36} style={{ color: '#8b5cf6' }} />
+          {xsolIconUrl ? (
+            <img 
+              src={xsolIconUrl} 
+              alt="xSOL" 
+              style={{ width: 36, height: 36, borderRadius: '50%' }} 
+            />
+          ) : (
+            <TrendingUp size={36} style={{ color: '#8b5cf6' }} />
+          )}
           xSOL Metrics
         </h1>
         <p style={{

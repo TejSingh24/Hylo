@@ -45,7 +45,56 @@ export interface BreakEvenData {
 }
 
 /**
- * Fetch xSOL metrics from GitHub Gist
+ * Fetch xSOL metrics from Vercel API endpoint (with Gist fallback)
+ * Primary: /api/xsol-metrics (Hylo API via serverless function)
+ * Fallback: GitHub Gist
+ */
+export async function fetchXSolMetrics(): Promise<BreakEvenData> {
+  try {
+    console.log('🔍 Fetching xSOL metrics from /api/xsol-metrics...');
+    
+    const response = await fetch('/api/xsol-metrics', {
+      cache: 'no-cache',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const metrics: XSolMetrics = await response.json();
+    console.log('✅ xSOL metrics from API:', metrics);
+    
+    // Get xSOL icon from Gist (API doesn't return it)
+    const gistData = await fetchGistForIcon();
+    
+    return {
+      metrics,
+      isLoading: false,
+      error: null,
+      xsolIconUrl: gistData.xsolIconUrl,
+    };
+  } catch (error) {
+    console.warn('⚠️ API failed, falling back to Gist:', error);
+    return fetchXSolMetricsFromGist();
+  }
+}
+
+/**
+ * Fetch just the xSOL icon URL from Gist
+ */
+async function fetchGistForIcon(): Promise<{ xsolIconUrl: string | null }> {
+  try {
+    const response = await fetch(GIST_RAW_URL, { cache: 'no-cache' });
+    const gistData: GistDataWithXSol = await response.json();
+    const xsolAsset = gistData.assets.find(a => a.baseAsset === 'xSOL');
+    return { xsolIconUrl: xsolAsset?.assetSymbolImage || null };
+  } catch {
+    return { xsolIconUrl: null };
+  }
+}
+
+/**
+ * Fetch xSOL metrics from GitHub Gist (fallback)
  */
 export async function fetchXSolMetricsFromGist(): Promise<BreakEvenData> {
   try {

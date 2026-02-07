@@ -95,16 +95,30 @@ async function fetchPricesFromJupiter(mintAddresses) {
  */
 async function fetchXSolIcon() {
   try {
+    console.log('    Fetching xSOL icon from metadata API...');
     const response = await fetch(`${HYLO_METADATA_API}?mints=${XSOL_MINT}`);
+    
+    if (!response.ok) {
+      console.warn(`    ⚠️ Metadata API returned ${response.status}`);
+      return 'https://hylo.so/icons/xsol.svg'; // Fallback to known URL
+    }
+    
     const data = await response.json();
+    console.log('    Metadata response:', JSON.stringify(data).substring(0, 200));
+    
     const iconPath = data?.metadata?.[XSOL_MINT]?.image;
     if (iconPath) {
-      return iconPath.startsWith('http') ? iconPath : `https://hylo.so${iconPath}`;
+      const fullUrl = iconPath.startsWith('http') ? iconPath : `https://hylo.so${iconPath}`;
+      console.log(`    ✓ Icon URL: ${fullUrl}`);
+      return fullUrl;
     }
+    
+    console.warn('    ⚠️ No icon path in metadata, using fallback');
+    return 'https://hylo.so/icons/xsol.svg'; // Fallback
   } catch (error) {
-    console.warn(`  ⚠️ Could not fetch xSOL icon: ${error.message}`);
+    console.warn(`    ⚠️ Could not fetch xSOL icon: ${error.message}`);
+    return 'https://hylo.so/icons/xsol.svg'; // Fallback to known URL
   }
-  return null;
 }
 
 /**

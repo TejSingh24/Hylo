@@ -49,22 +49,24 @@ async function main() {
     console.log('🚀 Starting RateX scraper (Phase 0 + Two-Phase)...');
     console.log(`⏰ Time: ${new Date().toISOString()}`);
     
+    // ========== STEP 1: Fetch Existing Gist Data (BEFORE Phase 0) ==========
+    console.log('\n📥 STEP 1: Fetching existing Gist data...');
+    const existingGistData = await fetchExistingGistData();
+    
     // ========== PHASE 0: xSOL Metrics (runs before browser launch) ==========
     try {
       xsolMetricsData = await fetchXSolMetricsPhase0();
       if (xsolMetricsData) {
         console.log('✅ Phase 0 complete - xSOL metrics ready');
       } else {
-        console.warn('⚠️ Phase 0 returned null - continuing without xSOL metrics');
+        console.warn('⚠️ Phase 0 returned null - preserving existing xSOL metrics from Gist');
+        xsolMetricsData = existingGistData?.fullData?.xsolMetrics || null;
       }
     } catch (phase0Error) {
       console.error('⚠️ Phase 0 failed:', phase0Error.message);
-      console.log('   Continuing with Phase 1 and 2...');
+      console.log('   Preserving existing xSOL metrics from Gist...');
+      xsolMetricsData = existingGistData?.fullData?.xsolMetrics || null;
     }
-    
-    // ========== STEP 1: Fetch Existing Gist Data ==========
-    console.log('\n📥 STEP 1: Fetching existing Gist data...');
-    const existingGistData = await fetchExistingGistData();
     
     // ========== STEP 2: Launch Browser ==========
     console.log('\n🌐 STEP 2: Launching browser...');

@@ -4,9 +4,11 @@
  */
 
 const HYLO_API = 'https://api.hylo.so/stats';
+const HYLO_TOKEN_METADATA = 'https://hylo.so/api/token-metadata/batch';
 const JUPITER_API = 'https://lite-api.jup.ag/price/v3';
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const XSOL_MINT = '4sWNB8zGWHkh6UnmwiEtzNxL4XrN7uK9tosbESbJFfVs';
 
 export default async function handler(req, res) {
   // Set CORS headers
@@ -33,7 +35,21 @@ export default async function handler(req, res) {
     // Fetch SOL price from Jupiter
     const jupiterResponse = await fetch(`${JUPITER_API}?ids=${SOL_MINT}&vsToken=${USDC_MINT}`);
     const jupiterData = await jupiterResponse.json();
-    const SOL_price = jupiterData?.data?.[SOL_MINT]?.price || 0;
+    const SOL_price = jupiterData?.[SOL_MINT]?.usdPrice || 0;
+    
+    // Fetch xSOL icon from Hylo token metadata
+    let xSOL_icon_url = null;
+    try {
+      const metadataResponse = await fetch(`${HYLO_TOKEN_METADATA}?mints=${XSOL_MINT}`);
+      const metadataData = await metadataResponse.json();
+      const iconPath = metadataData?.metadata?.[XSOL_MINT]?.image;
+      if (iconPath) {
+        // Convert relative path to full URL
+        xSOL_icon_url = iconPath.startsWith('http') ? iconPath : `https://hylo.so${iconPath}`;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch xSOL icon:', e);
+    }
     
     // Extract metrics
     const HYusd_supply = stats.stablecoinSupply;
@@ -59,7 +75,7 @@ export default async function handler(req, res) {
       Collateral_TVL,
       Collateral_TVL_SOL,
       Effective_Leverage,
-      xSOL_icon_url: null,
+      xSOL_icon_url,
       lastFetched: new Date().toISOString(),
       source: 'hylo-api'
     };

@@ -3,7 +3,7 @@ import { TrendingUp, Pencil, Check, X, RefreshCw } from 'lucide-react';
 import '../App.css';
 import '../components/Dashboard.css';
 import { 
-  fetchXSolMetricsFromGist, 
+  fetchXSolMetrics, 
   calculateXSolBreakEvenPrice, 
   formatLargeNumber, 
   formatXSolPrice,
@@ -166,7 +166,7 @@ const XSolMetrics: React.FC = () => {
   useEffect(() => {
     const loadMetrics = async () => {
       setIsLoading(true);
-      const data = await fetchXSolMetricsFromGist();
+      const data = await fetchXSolMetrics();
       
       if (data.metrics) {
         setMetrics(data.metrics);
@@ -807,7 +807,6 @@ const XSolMetrics: React.FC = () => {
             color: 'rgba(148, 163, 184, 0.6)',
           }}>
             Last updated: {new Date(metrics.lastFetched).toLocaleString()}
-            {metrics.source && ` • Source: ${metrics.source}`}
           </div>
         )}
 

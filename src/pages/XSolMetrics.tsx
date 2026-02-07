@@ -807,7 +807,6 @@ const XSolMetrics: React.FC = () => {
             color: 'rgba(148, 163, 184, 0.6)',
           }}>
             Last updated: {new Date(metrics.lastFetched).toLocaleString()}
-            {metrics.source && ` • Source: ${metrics.source}`}
           </div>
         )}
 

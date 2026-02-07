@@ -401,7 +401,8 @@ async function main() {
       phase: 2,
       phaseStatus: 'hylo-complete',
       assetsCount: phase2AFullData.length,
-      assets: phase2AFullData
+      assets: phase2AFullData,
+      xsolMetrics: xsolMetricsData || null
     };
     await updateGist(GIST_ID, phase2ATimestamp, GIST_TOKEN);
     console.log('✅ Hylo data now live in Gist!');

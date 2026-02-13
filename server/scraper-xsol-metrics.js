@@ -44,6 +44,7 @@ export async function scrapeXSolMetrics() {
     
     const hyloData = await hyloResponse.json();
     const stats = hyloData.exchangeStats;
+    const stabilityPoolStats = hyloData.stabilityPoolStats || {};
     
     // Extract values from Hylo API (correct field names)
     const HYusd_supply = stats.stablecoinSupply;
@@ -51,6 +52,7 @@ export async function scrapeXSolMetrics() {
     const xSOL_supply = stats.levercoinSupply;
     const CollateralRatio = stats.collateralRatio;
     const StabilityMode = stats.stabilityMode || {};
+    const xSOL_sp = stabilityPoolStats.levercoinInPool || 0;
     
     console.log(`    ✓ HYusd supply: ${HYusd_supply.toLocaleString()}`);
     console.log(`    ✓ Collateral ratio: ${CollateralRatio}`);
@@ -98,6 +100,7 @@ export async function scrapeXSolMetrics() {
       CollateralRatio,
       SOL_price,
       StabilityMode,
+      xSOL_sp,
       Collateral_TVL,
       Collateral_TVL_SOL,
       Effective_Leverage,

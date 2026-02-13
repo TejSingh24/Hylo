@@ -14,6 +14,7 @@ export interface XSolMetrics {
   CollateralRatio: number;
   SOL_price: number;
   StabilityMode: object;
+  xSOL_sp: number;
   Collateral_TVL: number;
   Collateral_TVL_SOL: number;
   Effective_Leverage: number;
@@ -165,6 +166,140 @@ export function calculateXSolBreakEvenPrice(
   const xSOL_be_p = ((xSOL_buy_p * xSOL_supply) + HYusd_supply) / Collateral_TVL_SOL;
   
   return xSOL_be_p;
+}
+
+/**
+ * Break-even result with Stability Pool awareness
+ */
+export interface BreakEvenResult {
+  /** SOL price at which user breaks even (SP-adjusted) */
+  breakEvenPrice: number;
+  /** Which phase the break-even falls in */
+  phase: 'phase-0' | 'phase-A' | 'phase-B' | 'normal' | 'error';
+  /** SOL price where stability pool fully exhausts (P*) */
+  poolExhaustionSolPrice: number | null;
+  /** xSOL price at pool exhaustion */
+  poolExhaustionXSolPrice: number | null;
+  /** SOL price where CR reaches 150% and pool activates */
+  activationSolPrice: number | null;
+  /** Break-even without SP adjustment (naive) */
+  naiveBreakEvenPrice: number;
+  /** Improvement: how much lower the SP break-even is vs naive */
+  improvement: number;
+}
+
+/**
+ * Calculate xSOL break-even price WITH Stability Pool awareness.
+ *
+ * Three phases as SOL price rises:
+ *   Phase 0: CR < 150%, normal — xSOL price = (P*C - n_h) / n_x
+ *   Phase A: CR pinned at 150%, pool converting — same xSOL price formula, leverage = 3×
+ *   Phase B: Pool exhausted — xSOL price = (P*C - n_h*) / n_x* (steeper slope)
+ *
+ * Key insight: xSOL price formula is identical in Phase 0 & A. The adjustment
+ * only matters when break-even falls in Phase B (after pool exhaustion), where
+ * fewer xSOL tokens and more HYusd change the slope, giving a LOWER break-even.
+ *
+ * @param xSOL_buy_p  User's xSOL purchase price in USD
+ * @param metrics     Current protocol metrics
+ * @returns           BreakEvenResult with adjusted price and phase info
+ */
+export function calculateXSolBreakEvenPriceWithSP(
+  xSOL_buy_p: number,
+  metrics: XSolMetrics
+): BreakEvenResult {
+  const { xSOL_supply, HYusd_supply, SOL_price, Collateral_TVL } = metrics;
+  const xSOL_sp = metrics.xSOL_sp ?? 0;
+
+  // C = total SOL collateral (constant regardless of SOL price)
+  const C = SOL_price > 0 ? Collateral_TVL / SOL_price : 0;
+
+  if (C === 0 || xSOL_supply === 0) {
+    return {
+      breakEvenPrice: 0,
+      phase: 'error',
+      poolExhaustionSolPrice: null,
+      poolExhaustionXSolPrice: null,
+      activationSolPrice: null,
+      naiveBreakEvenPrice: 0,
+      improvement: 0,
+    };
+  }
+
+  // Naive break-even (Phase 0 / Phase A — same formula)
+  const P_be_naive = (xSOL_buy_p * xSOL_supply + HYusd_supply) / C;
+
+  // If no stability pool xSOL, return naive
+  if (xSOL_sp <= 0) {
+    return {
+      breakEvenPrice: P_be_naive,
+      phase: 'normal',
+      poolExhaustionSolPrice: null,
+      poolExhaustionXSolPrice: null,
+      activationSolPrice: null,
+      naiveBreakEvenPrice: P_be_naive,
+      improvement: 0,
+    };
+  }
+
+  // SOL price where CR reaches 150% (stability pool activates)
+  const P_activate = (1.5 * HYusd_supply) / C;
+
+  // SOL price where stability pool fully exhausts
+  // P* = n_h * (n_x - x_sp) / (C * (2*n_x/3 - x_sp))
+  const denominator = (2 * xSOL_supply / 3) - xSOL_sp;
+
+  // Edge case: pool >= 66.7% of supply — pool can never exhaust, Phase A forever
+  if (denominator <= 0) {
+    return {
+      breakEvenPrice: P_be_naive,
+      phase: P_be_naive <= P_activate ? 'phase-0' : 'phase-A',
+      poolExhaustionSolPrice: null,
+      poolExhaustionXSolPrice: null,
+      activationSolPrice: P_activate,
+      naiveBreakEvenPrice: P_be_naive,
+      improvement: 0,
+    };
+  }
+
+  const P_star = (HYusd_supply * (xSOL_supply - xSOL_sp)) / (C * denominator);
+
+  // xSOL price at pool exhaustion (using Phase 0/A formula)
+  const xSOL_price_at_P_star = (P_star * C - HYusd_supply) / xSOL_supply;
+
+  // If naive break-even is at or before pool exhaustion, no SP adjustment needed
+  // (xSOL price formula is identical in Phase 0 and Phase A)
+  if (P_be_naive <= P_star) {
+    const phase = P_be_naive <= P_activate ? 'phase-0' : 'phase-A';
+    return {
+      breakEvenPrice: P_be_naive,
+      phase,
+      poolExhaustionSolPrice: P_star,
+      poolExhaustionXSolPrice: xSOL_price_at_P_star,
+      activationSolPrice: P_activate,
+      naiveBreakEvenPrice: P_be_naive,
+      improvement: 0,
+    };
+  }
+
+  // Break-even is AFTER pool exhaustion — Phase B formula applies
+  // Post-exhaustion state:
+  const n_x_star = xSOL_supply - xSOL_sp;      // All pool xSOL burned
+  const n_h_star = (2 * P_star * C) / 3;        // HYusd at exhaustion
+
+  // Phase B break-even: xSOL_buy_p = (P_be * C - n_h*) / n_x*
+  // => P_be = (xSOL_buy_p * n_x* + n_h*) / C
+  const P_be_sp = (xSOL_buy_p * n_x_star + n_h_star) / C;
+
+  return {
+    breakEvenPrice: P_be_sp,
+    phase: 'phase-B',
+    poolExhaustionSolPrice: P_star,
+    poolExhaustionXSolPrice: xSOL_price_at_P_star,
+    activationSolPrice: P_activate,
+    naiveBreakEvenPrice: P_be_naive,
+    improvement: P_be_naive - P_be_sp,
+  };
 }
 
 /**

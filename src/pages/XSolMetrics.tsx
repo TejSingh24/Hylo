@@ -4,10 +4,12 @@ import '../App.css';
 import '../components/Dashboard.css';
 import { 
   fetchXSolMetrics, 
-  calculateXSolBreakEvenPrice, 
+  calculateXSolBreakEvenPrice,
+  calculateXSolBreakEvenPriceWithSP,
   formatLargeNumber, 
   formatXSolPrice,
-  type XSolMetrics as XSolMetricsData 
+  type XSolMetrics as XSolMetricsData,
+  type BreakEvenResult,
 } from '../services/xsolMetricsApi';
 
 // Editable field type
@@ -22,6 +24,7 @@ const XSolMetrics: React.FC = () => {
   
   const [xSOL_buy_p, setXSOL_buy_p] = useState<string>('0');
   const [breakEvenPrice, setBreakEvenPrice] = useState<number>(0);
+  const [breakEvenResult, setBreakEvenResult] = useState<BreakEvenResult | null>(null);
 
   // Editable fields state
   const [editingField, setEditingField] = useState<EditableField>(null);
@@ -136,8 +139,10 @@ const XSolMetrics: React.FC = () => {
     setIsCustomValues(true);
     
     // Recalculate break-even price
-    const bePrice = calculateXSolBreakEvenPrice(parseFloat(xSOL_buy_p) || 0, recalculated);
+    const purchasePrice = parseFloat(xSOL_buy_p) || 0;
+    const bePrice = calculateXSolBreakEvenPrice(purchasePrice, recalculated);
     setBreakEvenPrice(bePrice);
+    setBreakEvenResult(calculateXSolBreakEvenPriceWithSP(purchasePrice, recalculated));
     
     setEditingField(null);
     setEditValue('');
@@ -157,8 +162,10 @@ const XSolMetrics: React.FC = () => {
     if (originalMetrics) {
       setMetrics(originalMetrics);
       setIsCustomValues(false);
-      const bePrice = calculateXSolBreakEvenPrice(parseFloat(xSOL_buy_p) || 0, originalMetrics);
+      const purchasePrice = parseFloat(xSOL_buy_p) || 0;
+      const bePrice = calculateXSolBreakEvenPrice(purchasePrice, originalMetrics);
       setBreakEvenPrice(bePrice);
+      setBreakEvenResult(calculateXSolBreakEvenPriceWithSP(purchasePrice, originalMetrics));
     }
   };
 
@@ -175,6 +182,7 @@ const XSolMetrics: React.FC = () => {
         // Calculate initial break-even price with default purchase price (0)
         const bePrice = calculateXSolBreakEvenPrice(0, data.metrics);
         setBreakEvenPrice(bePrice);
+        setBreakEvenResult(calculateXSolBreakEvenPriceWithSP(0, data.metrics));
       }
       
       setXsolIconUrl(data.xsolIconUrl);
@@ -193,6 +201,7 @@ const XSolMetrics: React.FC = () => {
       const purchasePrice = parseFloat(value) || 0;
       const bePrice = calculateXSolBreakEvenPrice(purchasePrice, metrics);
       setBreakEvenPrice(bePrice);
+      setBreakEvenResult(calculateXSolBreakEvenPriceWithSP(purchasePrice, metrics));
     }
   };
 
@@ -696,6 +705,44 @@ const XSolMetrics: React.FC = () => {
               ${formatLargeNumber(metrics?.Collateral_TVL ?? null)}
             </div>
           </div>
+
+          {/* Stability Pool xSOL */}
+          <div style={{
+            background: 'rgba(15, 23, 42, 0.4)',
+            borderRadius: '8px',
+            padding: '0.875rem',
+            border: '1px solid rgba(148, 163, 184, 0.08)',
+            borderLeft: '3px solid #f97316',
+          }}>
+            <div style={{
+              fontSize: '0.65rem',
+              color: 'rgba(209, 213, 219, 0.7)',
+              textTransform: 'uppercase',
+              marginBottom: '0.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+            }}>
+              Stability Pool xSOL
+              <span title="xSOL tokens held in the stability pool. When CR reaches 150%, these convert to HYusd to cap CR." style={{ cursor: 'help', opacity: 0.5 }}>ⓘ</span>
+            </div>
+            <div style={{
+              fontSize: '1.1rem',
+              fontWeight: '600',
+              color: '#e2e8f0',
+            }}>
+              {formatLargeNumber(metrics?.xSOL_sp ?? null)}
+            </div>
+            {metrics && metrics.xSOL_sp > 0 && metrics.xSOL_supply > 0 && (
+              <div style={{
+                fontSize: '0.65rem',
+                color: 'rgba(148, 163, 184, 0.6)',
+                marginTop: '0.25rem',
+              }}>
+                {((metrics.xSOL_sp / metrics.xSOL_supply) * 100).toFixed(1)}% of total supply
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Divider */}
@@ -776,7 +823,20 @@ const XSolMetrics: React.FC = () => {
               fontWeight: '500',
               marginBottom: '0.5rem',
             }}>
-              xSOL Break-Even Price (USD)
+              xSOL Break-Even SOL Price (USD)
+              {breakEvenResult && breakEvenResult.phase === 'phase-B' && (
+                <span style={{ 
+                  marginLeft: '0.5rem',
+                  fontSize: '0.7rem',
+                  padding: '0.15rem 0.4rem',
+                  background: 'rgba(249, 115, 22, 0.2)',
+                  border: '1px solid rgba(249, 115, 22, 0.4)',
+                  borderRadius: '4px',
+                  color: '#fb923c',
+                }}>
+                  SP Adjusted
+                </span>
+              )}
             </p>
             <p style={{
               fontSize: '2.5rem',
@@ -786,15 +846,147 @@ const XSolMetrics: React.FC = () => {
               WebkitTextFillColor: 'transparent',
               margin: '0.5rem 0',
             }}>
-              {formatXSolPrice(breakEvenPrice)}
+              ${breakEvenResult ? formatXSolPrice(breakEvenResult.breakEvenPrice) : formatXSolPrice(breakEvenPrice)}
             </p>
+
+            {/* Phase badge */}
+            {breakEvenResult && breakEvenResult.phase !== 'error' && parseFloat(xSOL_buy_p) > 0 && (
+              <div style={{
+                display: 'inline-block',
+                fontSize: '0.7rem',
+                padding: '0.2rem 0.6rem',
+                borderRadius: '999px',
+                marginBottom: '0.75rem',
+                background: breakEvenResult.phase === 'phase-0' ? 'rgba(16, 185, 129, 0.15)' :
+                           breakEvenResult.phase === 'phase-A' ? 'rgba(251, 191, 36, 0.15)' :
+                           breakEvenResult.phase === 'phase-B' ? 'rgba(249, 115, 22, 0.15)' :
+                           'rgba(148, 163, 184, 0.15)',
+                color: breakEvenResult.phase === 'phase-0' ? '#34d399' :
+                       breakEvenResult.phase === 'phase-A' ? '#fbbf24' :
+                       breakEvenResult.phase === 'phase-B' ? '#fb923c' :
+                       '#94a3b8',
+                border: `1px solid ${
+                  breakEvenResult.phase === 'phase-0' ? 'rgba(16, 185, 129, 0.3)' :
+                  breakEvenResult.phase === 'phase-A' ? 'rgba(251, 191, 36, 0.3)' :
+                  breakEvenResult.phase === 'phase-B' ? 'rgba(249, 115, 22, 0.3)' :
+                  'rgba(148, 163, 184, 0.3)'
+                }`,
+              }}>
+                {breakEvenResult.phase === 'phase-0' && 'Phase 0 — Normal (CR < 150%)'}
+                {breakEvenResult.phase === 'phase-A' && 'Phase A — During SP Conversion (CR = 150%)'}
+                {breakEvenResult.phase === 'phase-B' && 'Phase B — After SP Exhaustion'}
+                {breakEvenResult.phase === 'normal' && 'Normal — No Stability Pool'}
+              </div>
+            )}
+
             <p style={{
               fontSize: '0.75rem',
               color: 'rgba(226, 232, 240, 0.5)',
-              marginTop: '0.75rem',
+              marginTop: '0.5rem',
             }}>
-              The xSOL price in USD at which you break even on your position
+              The SOL price in USD at which you break even on your xSOL position
             </p>
+
+            {/* SP-adjusted details — only show when there's actual improvement */}
+            {breakEvenResult && breakEvenResult.phase === 'phase-B' && breakEvenResult.improvement > 0 && parseFloat(xSOL_buy_p) > 0 && (
+              <div style={{
+                marginTop: '1rem',
+                padding: '0.75rem',
+                background: 'rgba(0, 0, 0, 0.2)',
+                borderRadius: '0.5rem',
+                fontSize: '0.75rem',
+                textAlign: 'left',
+              }}>
+                <div style={{ 
+                  fontWeight: '600', 
+                  color: '#fb923c', 
+                  marginBottom: '0.5rem',
+                  fontSize: '0.7rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}>
+                  Stability Pool Impact
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(226, 232, 240, 0.6)' }}>
+                    <span>Without SP adjustment:</span>
+                    <span style={{ color: '#94a3b8' }}>${formatXSolPrice(breakEvenResult.naiveBreakEvenPrice)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(226, 232, 240, 0.6)' }}>
+                    <span>With SP adjustment:</span>
+                    <span style={{ color: '#34d399', fontWeight: '600' }}>${formatXSolPrice(breakEvenResult.breakEvenPrice)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(226, 232, 240, 0.6)' }}>
+                    <span>Improvement:</span>
+                    <span style={{ color: '#34d399' }}>-${formatXSolPrice(breakEvenResult.improvement)} lower</span>
+                  </div>
+                  {breakEvenResult.poolExhaustionSolPrice && (
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      color: 'rgba(226, 232, 240, 0.6)',
+                      borderTop: '1px solid rgba(255,255,255,0.05)',
+                      paddingTop: '0.35rem',
+                      marginTop: '0.15rem',
+                    }}>
+                      <span>SP exhausts at SOL price:</span>
+                      <span style={{ color: '#fbbf24' }}>${formatXSolPrice(breakEvenResult.poolExhaustionSolPrice)}</span>
+                    </div>
+                  )}
+                  {breakEvenResult.activationSolPrice && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(226, 232, 240, 0.6)' }}>
+                      <span>SP activates at SOL price:</span>
+                      <span style={{ color: '#94a3b8' }}>${formatXSolPrice(breakEvenResult.activationSolPrice)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Show activation/exhaustion info even in Phase 0/A if pool exists */}
+            {breakEvenResult && (breakEvenResult.phase === 'phase-0' || breakEvenResult.phase === 'phase-A') && breakEvenResult.activationSolPrice && parseFloat(xSOL_buy_p) > 0 && (
+              <div style={{
+                marginTop: '1rem',
+                padding: '0.75rem',
+                background: 'rgba(0, 0, 0, 0.2)',
+                borderRadius: '0.5rem',
+                fontSize: '0.75rem',
+                textAlign: 'left',
+              }}>
+                <div style={{ 
+                  fontWeight: '600', 
+                  color: '#94a3b8', 
+                  marginBottom: '0.5rem',
+                  fontSize: '0.7rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}>
+                  Stability Pool Info
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  {breakEvenResult.activationSolPrice && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(226, 232, 240, 0.6)' }}>
+                      <span>SP activates at SOL price:</span>
+                      <span style={{ color: '#94a3b8' }}>${formatXSolPrice(breakEvenResult.activationSolPrice)}</span>
+                    </div>
+                  )}
+                  {breakEvenResult.poolExhaustionSolPrice && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(226, 232, 240, 0.6)' }}>
+                      <span>SP exhausts at SOL price:</span>
+                      <span style={{ color: '#fbbf24' }}>${formatXSolPrice(breakEvenResult.poolExhaustionSolPrice)}</span>
+                    </div>
+                  )}
+                  <div style={{ 
+                    color: 'rgba(148, 163, 184, 0.5)', 
+                    fontSize: '0.65rem',
+                    fontStyle: 'italic',
+                    marginTop: '0.15rem',
+                  }}>
+                    Break-even is reached before pool exhausts — no SP adjustment needed.
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -136,6 +136,7 @@ async function fetchFromHyloAPI() {
   
   const hyloData = await hyloResponse.json();
   const stats = hyloData.exchangeStats;
+  const stabilityPoolStats = hyloData.stabilityPoolStats || {};
   
   // Extract values from Hylo API
   const HYusd_supply = stats.stablecoinSupply;
@@ -143,11 +144,13 @@ async function fetchFromHyloAPI() {
   const xSOL_supply = stats.levercoinSupply;
   const CollateralRatio = stats.collateralRatio;
   const StabilityMode = stats.stabilityMode || {};
+  const xSOL_sp = stabilityPoolStats.levercoinInPool || 0;
   
   console.log(`    ✓ HYusd supply: ${HYusd_supply?.toLocaleString() || 'N/A'}`);
   console.log(`    ✓ xSOL price: $${xSOL_price?.toFixed(6) || 'N/A'}`);
   console.log(`    ✓ xSOL supply: ${xSOL_supply?.toLocaleString() || 'N/A'}`);
   console.log(`    ✓ Collateral ratio: ${CollateralRatio}`);
+  console.log(`    ✓ Stability Pool xSOL: ${xSOL_sp?.toLocaleString() || '0'}`);
   
   // Fetch SOL price from Jupiter
   console.log('  📊 Fetching SOL price from Jupiter...');
@@ -173,6 +176,7 @@ async function fetchFromHyloAPI() {
     CollateralRatio,
     SOL_price,
     StabilityMode,
+    xSOL_sp,
     Collateral_TVL,
     Collateral_TVL_SOL,
     Effective_Leverage,
@@ -238,6 +242,7 @@ async function fetchFromBlockchain() {
     CollateralRatio,
     SOL_price,
     StabilityMode: {},
+    xSOL_sp: 0,
     Collateral_TVL,
     Collateral_TVL_SOL,
     Effective_Leverage,

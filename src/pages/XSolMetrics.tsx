@@ -712,7 +712,6 @@ const XSolMetrics: React.FC = () => {
             borderRadius: '8px',
             padding: '0.875rem',
             border: '1px solid rgba(148, 163, 184, 0.08)',
-            borderLeft: '3px solid #f97316',
           }}>
             <div style={{
               fontSize: '0.65rem',

@@ -871,9 +871,9 @@ const XSolMetrics: React.FC = () => {
                   'rgba(148, 163, 184, 0.3)'
                 }`,
               }}>
-                {breakEvenResult.phase === 'phase-0' && 'Phase 0 — Normal (CR < 150%)'}
-                {breakEvenResult.phase === 'phase-A' && 'Phase A — During SP Conversion (CR = 150%)'}
-                {breakEvenResult.phase === 'phase-B' && 'Phase B — After SP Exhaustion'}
+                {breakEvenResult.phase === 'phase-0' && 'Normal (CR < 150%)'}
+                {breakEvenResult.phase === 'phase-A' && 'During SP Conversion (CR = 150%)'}
+                {breakEvenResult.phase === 'phase-B' && 'After SP Exhaustion'}
                 {breakEvenResult.phase === 'normal' && 'Normal — No Stability Pool'}
               </div>
             )}
@@ -928,13 +928,13 @@ const XSolMetrics: React.FC = () => {
                       paddingTop: '0.35rem',
                       marginTop: '0.15rem',
                     }}>
-                      <span>SP exhausts at SOL price:</span>
+                      <span>SP deactivation exhausts at:</span>
                       <span style={{ color: '#fbbf24' }}>${formatXSolPrice(breakEvenResult.poolExhaustionSolPrice)}</span>
                     </div>
                   )}
                   {breakEvenResult.activationSolPrice && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(226, 232, 240, 0.6)' }}>
-                      <span>SP activates at SOL price:</span>
+                      <span>SP deactivation starts at:</span>
                       <span style={{ color: '#94a3b8' }}>${formatXSolPrice(breakEvenResult.activationSolPrice)}</span>
                     </div>
                   )}
@@ -965,13 +965,13 @@ const XSolMetrics: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   {breakEvenResult.activationSolPrice && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(226, 232, 240, 0.6)' }}>
-                      <span>SP activates at SOL price:</span>
+                      <span>SP deactivation starts at:</span>
                       <span style={{ color: '#94a3b8' }}>${formatXSolPrice(breakEvenResult.activationSolPrice)}</span>
                     </div>
                   )}
                   {breakEvenResult.poolExhaustionSolPrice && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(226, 232, 240, 0.6)' }}>
-                      <span>SP exhausts at SOL price:</span>
+                      <span>SP deactivation exhausts at:</span>
                       <span style={{ color: '#fbbf24' }}>${formatXSolPrice(breakEvenResult.poolExhaustionSolPrice)}</span>
                     </div>
                   )}

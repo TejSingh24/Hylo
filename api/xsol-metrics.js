@@ -31,6 +31,7 @@ export default async function handler(req, res) {
     
     const hyloData = await hyloResponse.json();
     const stats = hyloData.exchangeStats;
+    const stabilityPoolStats = hyloData.stabilityPoolStats || {};
     
     // Fetch SOL price from Jupiter
     const jupiterResponse = await fetch(`${JUPITER_API}?ids=${SOL_MINT}&vsToken=${USDC_MINT}`);
@@ -58,6 +59,9 @@ export default async function handler(req, res) {
     const CollateralRatio = stats.collateralRatio;
     const StabilityMode = stats.stabilityMode || {};
     
+    // Extract Stability Pool xSOL (levercoinInPool)
+    const xSOL_sp = stabilityPoolStats.levercoinInPool || 0;
+    
     // Calculate derived values
     const Collateral_TVL = HYusd_supply + (xSOL_price * xSOL_supply);
     const Collateral_TVL_SOL = SOL_price > 0 ? Collateral_TVL / SOL_price : 0;
@@ -72,6 +76,7 @@ export default async function handler(req, res) {
       CollateralRatio,
       SOL_price,
       StabilityMode,
+      xSOL_sp,
       Collateral_TVL,
       Collateral_TVL_SOL,
       Effective_Leverage,

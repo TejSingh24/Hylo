@@ -45,7 +45,6 @@ async function updateGist(gistId, data, token) {
 async function main() {
   let browser;
   let xsolMetricsData = null; // Store Phase 0 data to include in final Gist
-  let crAlertState = null; // Store CR alert state for Gist
   
   try {
     console.log('🚀 Starting RateX scraper (Phase 0 + Two-Phase)...');
@@ -70,16 +69,12 @@ async function main() {
       xsolMetricsData = existingGistData?.fullData?.xsolMetrics || null;
     }
     
-    // ========== CR ALERT CHECK (after Phase 0) ==========
+    // ========== CR ALERT CHECK (after Phase 0, non-blocking) ==========
     if (xsolMetricsData && xsolMetricsData.CollateralRatio != null) {
-      try {
-        crAlertState = await checkCRAndAlert(xsolMetricsData.CollateralRatio, {
-          gistId: GIST_ID,
-          gistToken: GIST_TOKEN,
-        });
-      } catch (crError) {
-        console.error('⚠️ CR alert check failed (non-blocking):', crError.message);
-      }
+      checkCRAndAlert(xsolMetricsData.CollateralRatio, {
+        gistToken: GIST_TOKEN,
+        alertsGistId: process.env.ALERTS_GIST_ID,
+      }).catch(crError => console.warn('⚠️ CR alert check failed:', crError.message));
     }
     
     // ========== STEP 2: Launch Browser ==========
@@ -365,7 +360,6 @@ async function main() {
       assetsCount: phase1MergedData.length,
       assets: phase1MergedData,
       xsolMetrics: xsolMetricsData || null,
-      ...(crAlertState && { alertState: crAlertState })
     };
     
     await updateGist(GIST_ID, phase1GistData, GIST_TOKEN);
@@ -418,7 +412,6 @@ async function main() {
       assetsCount: phase2AFullData.length,
       assets: phase2AFullData,
       xsolMetrics: xsolMetricsData || null,
-      ...(crAlertState && { alertState: crAlertState })
     };
     await updateGist(GIST_ID, phase2ATimestamp, GIST_TOKEN);
     console.log('✅ Hylo data now live in Gist!');
@@ -462,7 +455,6 @@ async function main() {
       assetsCount: phase2FinalData.length,
       assets: phase2FinalData,
       xsolMetrics: xsolMetricsData || null,
-      ...(crAlertState && { alertState: crAlertState })
     };
     
     await updateGist(GIST_ID, phase2Timestamp, GIST_TOKEN);

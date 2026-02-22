@@ -22,15 +22,16 @@ const TELEGRAM_API = 'https://api.telegram.org';
 /**
  * Send a Telegram message
  * @param {string} message - Message text (supports Markdown)
- * @param {object} options - Optional overrides { botToken, chatId }
+ * @param {string|number} chatId - Recipient chat ID (falls back to TELEGRAM_CHAT_ID env var)
+ * @param {object} options - Optional overrides { botToken }
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function sendTelegramAlert(message, options = {}) {
+export async function sendTelegramAlert(message, chatId, options = {}) {
   const botToken = options.botToken || process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = options.chatId || process.env.TELEGRAM_CHAT_ID;
+  const resolvedChatId = chatId || options.chatId || process.env.TELEGRAM_CHAT_ID;
 
-  if (!botToken || !chatId) {
-    console.warn('⚠️ Telegram not configured (missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)');
+  if (!botToken || !resolvedChatId) {
+    console.warn('⚠️ Telegram not configured (missing TELEGRAM_BOT_TOKEN or chatId)');
     return { success: false, error: 'Telegram not configured' };
   }
 
@@ -40,7 +41,7 @@ export async function sendTelegramAlert(message, options = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id: resolvedChatId,
         text: message,
         parse_mode: 'Markdown',
         disable_web_page_preview: true,

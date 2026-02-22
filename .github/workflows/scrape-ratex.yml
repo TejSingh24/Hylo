@@ -38,6 +38,7 @@ jobs:
         env:
           GIST_ID: d3a1db6fc79e168cf5dff8d3a2c11706
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          ALERTS_GIST_ID: ${{ secrets.ALERTS_GIST_ID }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}

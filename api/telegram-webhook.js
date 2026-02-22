@@ -25,6 +25,55 @@ const TELEGRAM_API = 'https://api.telegram.org';
 const HYLO_STATS_API = 'https://api.hylo.so/stats';
 const GIST_RAW_URL = 'https://gist.githubusercontent.com/TejSingh24/d3a1db6fc79e168cf5dff8d3a2c11706/raw/ratex-assets.json';
 
+// ─── Alerts Gist helpers ─────────────────────────────────────────────────────
+
+async function fetchAlertsGist() {
+  const alertsGistId = process.env.ALERTS_GIST_ID;
+  const gistToken = process.env.GIST_TOKEN;
+  if (!alertsGistId || !gistToken) return null;
+
+  try {
+    const res = await fetch(`https://api.github.com/gists/${alertsGistId}`, {
+      headers: {
+        'Authorization': `token ${gistToken}`,
+        'User-Agent': 'Hylo-Telegram-Bot',
+      },
+    });
+    if (!res.ok) return null;
+    const gist = await res.json();
+    const content = gist.files?.['cr-alert-subscribers.json']?.content;
+    return content ? JSON.parse(content) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function persistAlertsGist(data) {
+  const alertsGistId = process.env.ALERTS_GIST_ID;
+  const gistToken = process.env.GIST_TOKEN;
+  if (!alertsGistId || !gistToken) return;
+
+  try {
+    await fetch(`https://api.github.com/gists/${alertsGistId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `token ${gistToken}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Hylo-Telegram-Bot',
+      },
+      body: JSON.stringify({
+        files: {
+          'cr-alert-subscribers.json': {
+            content: JSON.stringify(data, null, 2),
+          },
+        },
+      }),
+    });
+  } catch (err) {
+    console.warn('Failed to persist alerts Gist:', err.message);
+  }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function sendTelegramReply(chatId, text, botToken) {
@@ -163,30 +212,132 @@ async function handleStatus(chatId, botToken) {
 }
 
 async function handleAlerts(chatId, botToken) {
-  const gistInfo = await fetchAlertState();
-  const alertState = gistInfo?.alertState;
+  // Try per-user alert state from alerts Gist first
+  const alertsData = await fetchAlertsGist();
+  const subscriber = alertsData?.subscribers?.[String(chatId)];
+  const alertState = subscriber?.alertState;
 
   if (!alertState) {
-    await sendTelegramReply(chatId, '📭 No alert history found.', botToken);
+    // Fall back to legacy Gist alertState
+    const gistInfo = await fetchAlertState();
+    const legacyState = gistInfo?.alertState;
+    if (!legacyState) {
+      await sendTelegramReply(chatId, '📭 No alert history found. Set up alerts at the Hylo Community Hub.', botToken);
+      return;
+    }
+    // Show legacy state
+    const lines = ['📜 *Alert History*\n'];
+    const thresholds = [
+      { key: 'cr_110', label: '110%', emoji: '🚨' },
+      { key: 'cr_130', label: '130%', emoji: '🔴' },
+      { key: 'cr_135', label: '135%', emoji: '🟠' },
+      { key: 'cr_140', label: '140%', emoji: '🟡' },
+    ];
+    for (const t of thresholds) {
+      const entry = legacyState[t.key];
+      lines.push(`${t.emoji} *CR < ${t.label}*`);
+      lines.push(`  Active: ${entry?.active ? 'YES' : 'No'}`);
+      lines.push(`  Last Telegram: ${entry?.lastTelegram || '—'}`);
+      lines.push('');
+    }
+    await sendTelegramReply(chatId, lines.join('\n'), botToken);
     return;
   }
 
-  const lines = ['📜 *Alert History*\n'];
-  const thresholds = [
-    { key: 'cr_110', label: '110%', emoji: '🚨' },
-    { key: 'cr_130', label: '130%', emoji: '🔴' },
-    { key: 'cr_135', label: '135%', emoji: '🟠' },
-    { key: 'cr_140', label: '140%', emoji: '🟡' },
-  ];
-
-  for (const t of thresholds) {
-    const entry = alertState[t.key];
-    lines.push(`${t.emoji} *CR < ${t.label}*`);
+  // Show per-user alert state
+  const userThresholds = (subscriber.thresholds || [140, 135, 130, 110]).sort((a, b) => a - b);
+  const lines = ['📜 *Your Alert History*\n'];
+  for (const pct of userThresholds) {
+    const key = `cr_${pct}`;
+    const entry = alertState[key];
+    const emoji = pct <= 110 ? '🚨' : pct <= 130 ? '🔴' : pct <= 135 ? '🟠' : '🟡';
+    lines.push(`${emoji} *CR < ${pct}%*`);
     lines.push(`  Active: ${entry?.active ? 'YES' : 'No'}`);
     lines.push(`  Last Telegram: ${entry?.lastTelegram || '—'}`);
-    lines.push(`  Last Email: ${entry?.lastEmail || '—'}`);
     lines.push('');
   }
+  await sendTelegramReply(chatId, lines.join('\n'), botToken);
+}
+
+async function handleStartWithRef(chatId, refCode, botToken) {
+  const alertsData = await fetchAlertsGist();
+  if (!alertsData) {
+    await sendTelegramReply(chatId, '❌ Alert system is not configured yet. Please try again later.', botToken);
+    return;
+  }
+
+  // Check if ref code exists
+  if (!alertsData.pendingRefs?.[refCode]) {
+    // Maybe already connected?
+    if (alertsData.subscribers?.[String(chatId)]) {
+      await sendTelegramReply(chatId, '✅ You\'re already connected! Return to the website to customize your thresholds.', botToken);
+      return;
+    }
+    await sendTelegramReply(chatId, '❌ Invalid or expired link. Please generate a new one from the Hylo Community Hub.', botToken);
+    return;
+  }
+
+  // Register subscriber
+  if (!alertsData.subscribers) alertsData.subscribers = {};
+  alertsData.subscribers[String(chatId)] = {
+    chatId: chatId,
+    refCode: refCode,
+    thresholds: [140, 135, 130, 110],
+    alertState: {},
+    active: true,
+    connectedAt: new Date().toISOString(),
+  };
+
+  // Mark ref as claimed
+  alertsData.pendingRefs[refCode].claimed = true;
+  alertsData.pendingRefs[refCode].claimedBy = chatId;
+  alertsData.pendingRefs[refCode].claimedAt = new Date().toISOString();
+
+  await persistAlertsGist(alertsData);
+
+  await sendTelegramReply(
+    chatId,
+    '✅ *Connected successfully!*\n\nYou\'ll receive CR alerts when thresholds are breached.\n\n🔧 Return to the Hylo Community Hub to customize your alert thresholds.\n\nDefault thresholds: 140%, 135%, 130%, 110%\n\nCommands:\n/mythresholds — View your thresholds\n/unsubscribe — Stop alerts',
+    botToken
+  );
+}
+
+async function handleUnsubscribe(chatId, botToken) {
+  const alertsData = await fetchAlertsGist();
+  if (!alertsData?.subscribers?.[String(chatId)]) {
+    await sendTelegramReply(chatId, 'ℹ️ You\'re not subscribed to any alerts.', botToken);
+    return;
+  }
+
+  alertsData.subscribers[String(chatId)].active = false;
+  await persistAlertsGist(alertsData);
+
+  await sendTelegramReply(chatId, '🔕 *Alerts disabled.* You won\'t receive any more CR alerts.\n\nTo re-enable, visit the Hylo Community Hub and set up alerts again.', botToken);
+}
+
+async function handleMyThresholds(chatId, botToken) {
+  const alertsData = await fetchAlertsGist();
+  const subscriber = alertsData?.subscribers?.[String(chatId)];
+
+  if (!subscriber) {
+    await sendTelegramReply(chatId, 'ℹ️ You\'re not subscribed. Set up alerts at the Hylo Community Hub.', botToken);
+    return;
+  }
+
+  const thresholds = (subscriber.thresholds || [140, 135, 130, 110]).sort((a, b) => b - a);
+  const lines = [
+    '🔔 *Your Alert Thresholds*\n',
+    `Status: ${subscriber.active ? '✅ Active' : '🔕 Paused'}`,
+    '',
+  ];
+
+  for (const pct of thresholds) {
+    const emoji = pct <= 110 ? '🚨' : pct <= 130 ? '🔴' : pct <= 135 ? '🟠' : '🟡';
+    lines.push(`${emoji} CR < ${pct}%`);
+  }
+
+  lines.push('');
+  lines.push('_Customize thresholds on the Hylo Community Hub._');
 
   await sendTelegramReply(chatId, lines.join('\n'), botToken);
 }
@@ -196,17 +347,20 @@ async function handleHelp(chatId, botToken) {
     '🤖 *Hylo Alert Bot — Commands*\n',
     '/cr — Show current Collateral Ratio (live from Hylo API)',
     '/status — System status + active alerts',
-    '/alerts — Alert history for all thresholds',
+    '/alerts — Your alert history',
+    '/mythresholds — View your alert thresholds',
+    '/unsubscribe — Stop receiving alerts',
     '/help — Show this message',
     '',
-    '*Alert Thresholds:*',
+    '*Default Alert Thresholds:*',
     '🟡 CR < 140% — Caution on sHYUSD loops',
     '🟠 CR < 135% — sHYUSD price can decrease anytime',
     '🔴 CR < 130% — sHYUSD price is going to decrease',
     '🚨 CR < 110% — HYUSD peg at risk',
     '',
-    '_Automated alerts run every 5 minutes via GitHub Actions._',
-    '_Telegram: alerts once + every 12h while breached._',
+    '_Customize thresholds on the Hylo Community Hub._',
+    '_Automated alerts run every 5 minutes._',
+    '_Telegram: alerts once + every 24h while breached._',
     '_Email: once per breach (until recovery)._',
   ];
 
@@ -244,7 +398,8 @@ export default async function handler(req, res) {
     }
 
     const chatId = message.chat.id;
-    const text = message.text.trim().toLowerCase();
+    const rawText = message.text.trim();
+    const text = rawText.toLowerCase();
     const command = text.split(' ')[0]; // Handle "/cr@botname" format
 
     switch (command) {
@@ -257,9 +412,24 @@ export default async function handler(req, res) {
       case '/alerts':
         await handleAlerts(chatId, botToken);
         break;
-      case '/start':
+      case '/start': {
+        // Check for deep link ref code: /start ref_XXXX
+        const parts = rawText.split(/\s+/);
+        if (parts.length > 1 && parts[1].startsWith('ref_')) {
+          await handleStartWithRef(chatId, parts[1], botToken);
+        } else {
+          await handleHelp(chatId, botToken);
+        }
+        break;
+      }
       case '/help':
         await handleHelp(chatId, botToken);
+        break;
+      case '/unsubscribe':
+        await handleUnsubscribe(chatId, botToken);
+        break;
+      case '/mythresholds':
+        await handleMyThresholds(chatId, botToken);
         break;
       default:
         // Ignore unknown commands — don't spam the chat

@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import StrategyDashboard from './pages/StrategyDashboard';
 import YieldCalculator from './pages/YieldCalculator';
 import XSolMetrics from './pages/XSolMetrics';
+import CRAlerts from './pages/CRAlerts';
 import './App.css';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Route path="/dashboard" element={<StrategyDashboard />} />
         <Route path="/calculator" element={<YieldCalculator />} />
         <Route path="/xsol-metrics" element={<XSolMetrics />} />
+        <Route path="/cr-alerts" element={<CRAlerts />} />
       </Routes>
     </>
   );

@@ -1,65 +1,60 @@
 /**
- * CR (Collateral Ratio) Monitor
+ * CR (Collateral Ratio) Monitor — Multi-User
  * 
- * Checks xSOL metrics CollateralRatio against defined thresholds and
- * triggers Telegram + email alerts when breached.
+ * Checks xSOL metrics CollateralRatio against per-user thresholds and
+ * triggers Telegram + email alerts for each subscribed user.
  * 
- * Alert state is persisted in the GitHub Gist JSON under the `alertState` key
- * so that duplicate alerts are not sent across scraper runs / API calls.
+ * Subscriber data is stored in a separate secret Gist (ALERTS_GIST_ID).
+ * Admin (TELEGRAM_CHAT_ID env var) always receives alerts as fallback.
  * 
- * Thresholds (descending severity):
+ * Default thresholds (users can customise):
  *   CR < 1.40 (140%) — caution on sHYUSD loops
  *   CR < 1.35 (135%) — sHYUSD price can decrease anytime
  *   CR < 1.30 (130%) — sHYUSD price is going to decrease
  *   CR < 1.10 (110%) — caution on HYUSD peg
  * 
- * Re-alert policy:
- *   Email  — once per threshold breach (until CR recovers above and drops again)
- *   Telegram — once per breach + repeat every 12 hours while still below
+ * Re-alert policy (per user):
+ *   Email    — ONE per threshold breach. No more until full reset (CR >= 148%).
+ *   Telegram — Once on breach + repeat every 24 hours while still below.
+ * 
+ * Reset policy:
+ *   All alert states reset ONLY when CR recovers above 148%.
  */
 
 import { sendTelegramAlert, sendEmailWithFallback } from './notifications.js';
 
-// ─── Gist helpers ────────────────────────────────────────────────────────────
-
-const GIST_RAW_URL = 'https://gist.githubusercontent.com/TejSingh24/d3a1db6fc79e168cf5dff8d3a2c11706/raw/ratex-assets.json';
+// ─── Alerts Gist helpers ─────────────────────────────────────────────────────
 
 /**
- * Fetch the full raw Gist JSON (includes alertState if previously written)
+ * Fetch subscribers from the alerts Gist via GitHub API (not raw, to avoid caching)
  */
-async function fetchGistRaw() {
+async function fetchAlertsGist(alertsGistId, gistToken) {
+  if (!alertsGistId || !gistToken) return null;
+
   try {
-    const res = await fetch(GIST_RAW_URL, { cache: 'no-cache' });
+    const res = await fetch(`https://api.github.com/gists/${alertsGistId}`, {
+      headers: {
+        'Authorization': `token ${gistToken}`,
+        'User-Agent': 'Hylo-CR-Monitor',
+      },
+    });
     if (!res.ok) return null;
-    return await res.json();
+    const gist = await res.json();
+    const content = gist.files?.['cr-alert-subscribers.json']?.content;
+    return content ? JSON.parse(content) : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Update only the alertState key in the Gist without touching anything else.
- * Reads existing Gist content, patches alertState, writes back.
+ * Persist updated subscribers data back to the alerts Gist
  */
-async function persistAlertState(alertState, gistId, gistToken) {
-  if (!gistId || !gistToken) {
-    console.warn('⚠️ Cannot persist alert state — GIST_ID or GIST_TOKEN missing');
-    return;
-  }
+async function persistAlertsGist(data, alertsGistId, gistToken) {
+  if (!alertsGistId || !gistToken) return;
 
   try {
-    // Read current Gist
-    const existing = await fetchGistRaw();
-    if (!existing) {
-      console.warn('⚠️ Could not read existing Gist to persist alert state');
-      return;
-    }
-
-    // Patch in the alert state
-    existing.alertState = alertState;
-
-    // Write back
-    const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+    const res = await fetch(`https://api.github.com/gists/${alertsGistId}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `token ${gistToken}`,
@@ -68,184 +63,315 @@ async function persistAlertState(alertState, gistId, gistToken) {
       },
       body: JSON.stringify({
         files: {
-          'ratex-assets.json': {
-            content: JSON.stringify(existing, null, 2),
+          'cr-alert-subscribers.json': {
+            content: JSON.stringify(data, null, 2),
           },
         },
       }),
     });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('❌ Failed to persist alert state:', response.status, errText);
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('❌ Failed to persist alerts Gist:', res.status, errText);
     } else {
-      console.log('✅ Alert state persisted to Gist');
+      console.log('✅ Alerts Gist persisted');
     }
   } catch (err) {
-    console.error('❌ Error persisting alert state:', err.message);
+    console.error('❌ Error persisting alerts Gist:', err.message);
   }
 }
 
-// ─── Threshold definitions ──────────────────────────────────────────────────
+// ─── Configuration ──────────────────────────────────────────────────────────
 
-const CR_THRESHOLDS = [
-  {
-    key: 'cr_110',
-    value: 1.10,
-    label: '110%',
-    message: (cr) =>
-      `Hylo projects Collateral Ratio (CR) is ${(cr * 100).toFixed(1)}% which is below 110%, Be cautious on HYUSD peg`,
-    severity: 'critical',
-  },
-  {
-    key: 'cr_130',
-    value: 1.30,
-    label: '130%',
-    message: (cr) =>
-      `Hylo projects Collateral Ratio (CR) is ${(cr * 100).toFixed(1)}% which is below 130%, Be cautious on sHYUSD loops, sHYUSD price is going to decrease`,
-    severity: 'high',
-  },
-  {
-    key: 'cr_135',
-    value: 1.35,
-    label: '135%',
-    message: (cr) =>
-      `Hylo projects Collateral Ratio (CR) is ${(cr * 100).toFixed(1)}% which is below 135%, Be cautious on sHYUSD loops, sHYUSD price can decrease anytime`,
-    severity: 'medium',
-  },
-  {
-    key: 'cr_140',
-    value: 1.45, // TEMP: raised from 1.40 to 1.45 for testing — revert after
-    label: '145%',
-    message: (cr) =>
-      `Hylo projects Collateral Ratio (CR) is ${(cr * 100).toFixed(1)}% which is below 145%, Be cautious on sHYUSD loops`,
-    severity: 'low',
-  },
-];
-
-// 12-hour interval in ms for Telegram re-alerts
-const TELEGRAM_REALERT_INTERVAL = 12 * 60 * 60 * 1000;
-
-// ─── Core logic ─────────────────────────────────────────────────────────────
+const DEFAULT_THRESHOLDS = [140, 135, 130, 110];
 
 /**
- * Build a default (clean) alert state object
+ * Build threshold config from a percentage array (e.g. [140, 135, 130, 110])
  */
-function defaultAlertState() {
+function buildThresholdConfigs(thresholdPercents) {
+  const sorted = [...thresholdPercents].sort((a, b) => b - a); // highest first
+  return sorted.map(pct => {
+    const value = pct / 100;
+    const label = `${pct}%`;
+    const key = `cr_${pct}`;
+
+    let severity, messageText;
+    if (pct <= 110) {
+      severity = 'critical';
+      messageText = `Be cautious on HYUSD peg`;
+    } else if (pct <= 130) {
+      severity = 'high';
+      messageText = `Be cautious on sHYUSD loops, sHYUSD price is going to decrease`;
+    } else if (pct <= 135) {
+      severity = 'medium';
+      messageText = `Be cautious on sHYUSD loops, sHYUSD price can decrease anytime`;
+    } else {
+      severity = 'low';
+      messageText = `Be cautious on sHYUSD loops`;
+    }
+
+    return {
+      key,
+      value,
+      label,
+      severity,
+      message: (cr) => `Hylo projects Collateral Ratio (CR) is ${(cr * 100).toFixed(1)}% which is below ${label}, ${messageText}`,
+    };
+  });
+}
+
+// CR must recover above this level to reset ALL alert states
+const CR_RESET_LEVEL = 1.48;
+
+// Telegram re-alert every 24 hours while still below threshold
+const TELEGRAM_REALERT_INTERVAL = 24 * 60 * 60 * 1000;
+
+// Minimum gap between any alerts (prevents race conditions from scraper + page load)
+const MIN_ALERT_GAP = 2 * 60 * 1000;
+
+// ─── Core per-user logic ────────────────────────────────────────────────────
+
+function defaultAlertStateForThresholds(thresholds) {
   const state = {};
-  for (const t of CR_THRESHOLDS) {
+  for (const t of thresholds) {
     state[t.key] = {
-      active: false,        // currently breached?
-      lastTelegram: null,    // ISO timestamp of last Telegram alert
-      lastEmail: null,       // ISO timestamp of last email alert
+      active: false,
+      lastTelegram: null,
+      lastEmail: null,
+      emailSent: false,
     };
   }
   return state;
 }
 
-/**
- * Check CR against all thresholds and send notifications as needed.
- * 
- * @param {number} currentCR - Current CollateralRatio (e.g., 1.38)
- * @param {object|null} existingAlertState - Previously persisted alertState (or null)
- * @returns {object} Updated alertState to persist
- */
-async function evaluateThresholds(currentCR, existingAlertState) {
-  const state = existingAlertState
-    ? { ...defaultAlertState(), ...JSON.parse(JSON.stringify(existingAlertState)) }
-    : defaultAlertState();
-  const now = new Date();
+function isTooSoonSinceLastAlert(alertState) {
+  const now = Date.now();
+  for (const key of Object.keys(alertState)) {
+    if (key.startsWith('_')) continue;
+    const entry = alertState[key];
+    if (entry?.lastTelegram) {
+      if (now - new Date(entry.lastTelegram).getTime() < MIN_ALERT_GAP) return true;
+    }
+  }
+  return false;
+}
 
-  for (const threshold of CR_THRESHOLDS) {
-    const entry = state[threshold.key];
+function hasActiveAlerts(alertState) {
+  for (const key of Object.keys(alertState)) {
+    if (key.startsWith('_')) continue;
+    if (alertState[key]?.active) return true;
+  }
+  return false;
+}
 
+function findMostSevereBreachedThreshold(currentCR, thresholds) {
+  let mostSevere = null;
+  for (const threshold of thresholds) {
     if (currentCR < threshold.value) {
-      // ── Threshold breached ──
-      const msg = threshold.message(currentCR);
-
-      // Determine if we need to send alerts
-      const isFirstBreach = !entry.active;
-      const telegramDue = isFirstBreach ||
-        (entry.lastTelegram && (now - new Date(entry.lastTelegram)) >= TELEGRAM_REALERT_INTERVAL);
-      const emailDue = isFirstBreach; // email only on first breach
-
-      if (telegramDue) {
-        const emoji =
-          threshold.severity === 'critical' ? '🚨' :
-          threshold.severity === 'high' ? '🔴' :
-          threshold.severity === 'medium' ? '🟠' : '🟡';
-        const telegramMsg = `${emoji} *CR ALERT — Below ${threshold.label}*\n\n${msg}\n\n📊 Current CR: *${(currentCR * 100).toFixed(1)}%*\n⏰ ${now.toISOString()}`;
-        await sendTelegramAlert(telegramMsg);
-        entry.lastTelegram = now.toISOString();
-      }
-
-      if (emailDue) {
-        const subject = `⚠️ Hylo CR Alert — Below ${threshold.label}`;
-        await sendEmailWithFallback(subject, msg);
-        entry.lastEmail = now.toISOString();
-      }
-
-      entry.active = true;
-    } else {
-      // ── CR is above this threshold — reset if it was active ──
-      if (entry.active) {
-        console.log(`✅ CR recovered above ${threshold.label} — resetting alert state for ${threshold.key}`);
-        entry.active = false;
-        entry.lastTelegram = null;
-        entry.lastEmail = null;
+      if (!mostSevere || threshold.value < mostSevere.value) {
+        mostSevere = threshold;
       }
     }
   }
+  return mostSevere;
+}
 
+/**
+ * Evaluate CR against a single user's thresholds and send notifications.
+ * Returns updated alertState for the user.
+ */
+async function evaluateForUser(currentCR, subscriber, thresholds) {
+  const chatId = subscriber.chatId;
+  const existingAlertState = subscriber.alertState || {};
+
+  // Build default state including any custom threshold keys the user may have
+  const defaults = defaultAlertStateForThresholds(thresholds);
+  const state = { ...defaults, ...JSON.parse(JSON.stringify(existingAlertState)) };
+  const now = new Date();
+  const nowMs = now.getTime();
+
+  // ── Reset check: CR >= 148% resets everything ──
+  if (currentCR >= CR_RESET_LEVEL) {
+    if (hasActiveAlerts(state)) {
+      console.log(`  ✅ [${chatId}] CR above ${(CR_RESET_LEVEL * 100).toFixed(0)}% — resetting ALL alerts`);
+      for (const t of thresholds) {
+        const entry = state[t.key];
+        if (entry && (entry.active || entry.emailSent)) {
+          entry.active = false;
+          entry.lastTelegram = null;
+          entry.lastEmail = null;
+          entry.emailSent = false;
+          entry.recoveredAt = now.toISOString();
+        }
+      }
+    }
+    state._lastCR = currentCR;
+    state._lastChecked = now.toISOString();
+    return state;
+  }
+
+  // ── CR above all user thresholds but below reset level ──
+  const highestThreshold = Math.max(...thresholds.map(t => t.value));
+  if (currentCR >= highestThreshold) {
+    state._lastCR = currentCR;
+    state._lastChecked = now.toISOString();
+    return state;
+  }
+
+  // ── Race condition guard ──
+  if (isTooSoonSinceLastAlert(state)) {
+    state._lastCR = currentCR;
+    state._lastChecked = now.toISOString();
+    return state;
+  }
+
+  // ── Find MOST SEVERE breached threshold for this user ──
+  const mostSevere = findMostSevereBreachedThreshold(currentCR, thresholds);
+  if (!mostSevere) {
+    state._lastCR = currentCR;
+    state._lastChecked = now.toISOString();
+    return state;
+  }
+
+  // Ensure the state entry exists for this threshold key
+  if (!state[mostSevere.key]) {
+    state[mostSevere.key] = { active: false, lastTelegram: null, lastEmail: null, emailSent: false };
+  }
+
+  const entry = state[mostSevere.key];
+  const msg = mostSevere.message(currentCR);
+  const emoji =
+    mostSevere.severity === 'critical' ? '🚨' :
+    mostSevere.severity === 'high' ? '🔴' :
+    mostSevere.severity === 'medium' ? '🟠' : '🟡';
+  const isFirstBreach = !entry.active;
+
+  // ── Telegram: first breach OR 24h since last ──
+  const telegramDue = isFirstBreach ||
+    (entry.lastTelegram && (nowMs - new Date(entry.lastTelegram).getTime()) >= TELEGRAM_REALERT_INTERVAL);
+
+  if (telegramDue) {
+    const reAlertTag = isFirstBreach ? '' : '\n🔁 _24h re-alert_';
+    const telegramMsg = `${emoji} *CR ALERT — Below ${mostSevere.label}*\n\n${msg}\n\n📊 Current CR: *${(currentCR * 100).toFixed(1)}%*\n⏰ ${now.toISOString()}${reAlertTag}`;
+    await sendTelegramAlert(telegramMsg, chatId);
+    entry.lastTelegram = now.toISOString();
+    console.log(`  📱 [${chatId}] Telegram alert sent for CR < ${mostSevere.label}`);
+  }
+
+  // ── Email: ONE per breach cycle ──
+  if (isFirstBreach && !entry.emailSent && subscriber.email) {
+    const subject = `⚠️ Hylo CR Alert — Below ${mostSevere.label}`;
+    await sendEmailWithFallback(subject, msg, subscriber.email);
+    entry.lastEmail = now.toISOString();
+    entry.emailSent = true;
+    console.log(`  📧 [${chatId}] Email sent for CR < ${mostSevere.label}`);
+  }
+
+  // Mark active
+  entry.active = true;
+
+  // Also mark all less severe thresholds as active
+  for (const t of thresholds) {
+    if (currentCR < t.value && t.key !== mostSevere.key) {
+      if (!state[t.key]) state[t.key] = { active: false, lastTelegram: null, lastEmail: null, emailSent: false };
+      state[t.key].active = true;
+    }
+  }
+
+  state._lastCR = currentCR;
+  state._lastChecked = now.toISOString();
   return state;
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /**
- * Main entry point: check CR thresholds and send alerts.
- * Reads alert state from Gist, evaluates, sends notifications, writes state back.
- * 
- * @param {number} collateralRatio - Current CR from xSOL metrics
- * @param {object} opts
- * @param {string} opts.gistId - GitHub Gist ID (for persisting state)
- * @param {string} opts.gistToken - GitHub PAT (for writing to Gist)
- * @param {object|null} opts.alertState - Pre-fetched alert state (if available, avoids extra Gist read)
- * @returns {Promise<object>} Updated alert state
+ * Main entry point: check CR thresholds for all subscribers and send alerts.
+ * Also sends admin alert to TELEGRAM_CHAT_ID as fallback.
  */
 export async function checkCRAndAlert(collateralRatio, opts = {}) {
-  const gistId = opts.gistId || process.env.GIST_ID;
   const gistToken = opts.gistToken || process.env.GIST_TOKEN;
+  const alertsGistId = opts.alertsGistId || process.env.ALERTS_GIST_ID;
 
   if (collateralRatio === null || collateralRatio === undefined) {
     console.warn('⚠️ CR monitor: collateralRatio is null/undefined, skipping');
-    return opts.alertState || defaultAlertState();
+    return;
   }
 
-  console.log(`\n🔍 CR Monitor: Checking CR = ${(collateralRatio * 100).toFixed(1)}%`);
+  console.log(`\n🔍 CR Monitor: CR = ${(collateralRatio * 100).toFixed(1)}% | Reset at ${(CR_RESET_LEVEL * 100).toFixed(0)}%`);
 
-  // Get existing alert state
-  let alertState = opts.alertState || null;
-  if (!alertState) {
-    const gistData = await fetchGistRaw();
-    alertState = gistData?.alertState || null;
+  // ── Admin alert (always, using env vars — backward compatible) ──
+  const adminChatId = process.env.TELEGRAM_CHAT_ID;
+  if (adminChatId) {
+    const adminThresholds = buildThresholdConfigs(DEFAULT_THRESHOLDS);
+    // Read admin alert state from alerts Gist (or start fresh)
+    let alertsData = await fetchAlertsGist(alertsGistId, gistToken);
+    if (!alertsData) alertsData = { subscribers: {}, pendingRefs: {} };
+
+    // Ensure admin subscriber exists
+    const adminKey = String(adminChatId);
+    if (!alertsData.subscribers[adminKey]) {
+      alertsData.subscribers[adminKey] = {
+        chatId: Number(adminChatId),
+        thresholds: DEFAULT_THRESHOLDS,
+        alertState: {},
+        active: true,
+        isAdmin: true,
+        connectedAt: new Date().toISOString(),
+      };
+    }
+
+    const adminSub = alertsData.subscribers[adminKey];
+    const adminThresholdsConfig = buildThresholdConfigs(adminSub.thresholds || DEFAULT_THRESHOLDS);
+    adminSub.alertState = await evaluateForUser(collateralRatio, adminSub, adminThresholdsConfig);
+
+    // ── Process all other subscribers ──
+    const subscriberKeys = Object.keys(alertsData.subscribers).filter(k => k !== adminKey);
+    console.log(`📢 Processing ${subscriberKeys.length} subscriber(s) + admin`);
+
+    for (const key of subscriberKeys) {
+      const sub = alertsData.subscribers[key];
+      if (!sub.active) continue;
+
+      try {
+        const userThresholds = buildThresholdConfigs(sub.thresholds || DEFAULT_THRESHOLDS);
+        sub.alertState = await evaluateForUser(collateralRatio, sub, userThresholds);
+      } catch (err) {
+        console.error(`  ❌ [${sub.chatId}] Alert evaluation failed:`, err.message);
+      }
+    }
+
+    // Persist all subscriber states in one write
+    await persistAlertsGist(alertsData, alertsGistId, gistToken);
+  } else {
+    console.warn('⚠️ No TELEGRAM_CHAT_ID — skipping admin alert. Checking subscribers only...');
+
+    let alertsData = await fetchAlertsGist(alertsGistId, gistToken);
+    if (!alertsData || !alertsData.subscribers || Object.keys(alertsData.subscribers).length === 0) {
+      console.log('ℹ️ No subscribers found — nothing to do');
+      return;
+    }
+
+    const subscriberKeys = Object.keys(alertsData.subscribers);
+    console.log(`📢 Processing ${subscriberKeys.length} subscriber(s)`);
+
+    for (const key of subscriberKeys) {
+      const sub = alertsData.subscribers[key];
+      if (!sub.active) continue;
+
+      try {
+        const userThresholds = buildThresholdConfigs(sub.thresholds || DEFAULT_THRESHOLDS);
+        sub.alertState = await evaluateForUser(collateralRatio, sub, userThresholds);
+      } catch (err) {
+        console.error(`  ❌ [${sub.chatId}] Alert evaluation failed:`, err.message);
+      }
+    }
+
+    await persistAlertsGist(alertsData, alertsGistId, gistToken);
   }
-
-  // Evaluate thresholds and send alerts
-  const updatedState = await evaluateThresholds(collateralRatio, alertState);
-
-  // Persist updated state to Gist
-  if (gistId && gistToken) {
-    await persistAlertState(updatedState, gistId, gistToken);
-  }
-
-  return updatedState;
 }
 
 /**
  * Get a human-readable CR status string (used by Telegram /cr command)
- * @param {number} cr - Current CollateralRatio
- * @returns {string} Formatted status
  */
 export function formatCRStatus(cr) {
   const percent = (cr * 100).toFixed(1);
@@ -269,4 +395,4 @@ export function formatCRStatus(cr) {
   return `📊 *Collateral Ratio: ${percent}%*\n\nStatus: ${status}\n${detail}`;
 }
 
-export { defaultAlertState, CR_THRESHOLDS };
+export { DEFAULT_THRESHOLDS, CR_RESET_LEVEL, buildThresholdConfigs };

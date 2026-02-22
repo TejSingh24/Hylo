@@ -1,6 +1,7 @@
 import { scrapeAllAssets, scrapeDetailPages, scrapeExponentDetailPages, fetchExistingGistData, calculateMaturesIn, calculateYtMetrics, calculateDaysToMaturity } from './scraper.js';
 import { scrapeAllExponentAssets } from './scraper-exponent.js';
 import { fetchXSolMetricsPhase0 } from './scraper-xsol-phase0.js';
+import { checkCRAndAlert } from './cr-monitor.js';
 import puppeteerCore from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import { chmod } from 'fs/promises';
@@ -66,6 +67,14 @@ async function main() {
       console.error('⚠️ Phase 0 failed:', phase0Error.message);
       console.log('   Preserving existing xSOL metrics from Gist...');
       xsolMetricsData = existingGistData?.fullData?.xsolMetrics || null;
+    }
+    
+    // ========== CR ALERT CHECK (after Phase 0, non-blocking) ==========
+    if (xsolMetricsData && xsolMetricsData.CollateralRatio != null) {
+      checkCRAndAlert(xsolMetricsData.CollateralRatio, {
+        gistToken: GIST_TOKEN,
+        alertsGistId: process.env.ALERTS_GIST_ID,
+      }).catch(crError => console.warn('⚠️ CR alert check failed:', crError.message));
     }
     
     // ========== STEP 2: Launch Browser ==========
@@ -350,7 +359,7 @@ async function main() {
       phase: 1,
       assetsCount: phase1MergedData.length,
       assets: phase1MergedData,
-      xsolMetrics: xsolMetricsData || null
+      xsolMetrics: xsolMetricsData || null,
     };
     
     await updateGist(GIST_ID, phase1GistData, GIST_TOKEN);
@@ -402,7 +411,7 @@ async function main() {
       phaseStatus: 'hylo-complete',
       assetsCount: phase2AFullData.length,
       assets: phase2AFullData,
-      xsolMetrics: xsolMetricsData || null
+      xsolMetrics: xsolMetricsData || null,
     };
     await updateGist(GIST_ID, phase2ATimestamp, GIST_TOKEN);
     console.log('✅ Hylo data now live in Gist!');
@@ -445,7 +454,7 @@ async function main() {
       phase: 2,
       assetsCount: phase2FinalData.length,
       assets: phase2FinalData,
-      xsolMetrics: xsolMetricsData || null
+      xsolMetrics: xsolMetricsData || null,
     };
     
     await updateGist(GIST_ID, phase2Timestamp, GIST_TOKEN);

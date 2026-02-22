@@ -498,9 +498,12 @@ const CRAlerts: React.FC = () => {
 
                       {/* Remove button */}
                       {thresholds.length > 1 && (
-                        <button
+                        <div
                           onClick={() => removeThreshold(index)}
                           title="Remove this threshold"
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') removeThreshold(index); }}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -515,10 +518,11 @@ const CRAlerts: React.FC = () => {
                             fontSize: '1rem',
                             fontWeight: '700',
                             lineHeight: 1,
+                            userSelect: 'none',
                           }}
                         >
                           ✕
-                        </button>
+                        </div>
                       )}
                     </div>
                   );

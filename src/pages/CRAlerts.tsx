@@ -506,6 +506,8 @@ const CRAlerts: React.FC = () => {
                             alignItems: 'center',
                             justifyContent: 'center',
                             width: '36px',
+                            margin: 0,
+                            padding: 0,
                             background: 'rgba(239, 68, 68, 0.15)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
                             borderRadius: '0.375rem',
@@ -515,6 +517,7 @@ const CRAlerts: React.FC = () => {
                             fontSize: '1rem',
                             fontWeight: '700',
                             lineHeight: 1,
+                            boxSizing: 'border-box',
                           }}
                         >
                           ✕

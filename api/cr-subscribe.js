@@ -161,6 +161,7 @@ export default async function handler(req, res) {
         connected: true,
         chatId: chatId,
         thresholds: subscriber?.thresholds || [140, 135, 130, 110],
+        reAlertIntervalHours: subscriber?.reAlertIntervalHours || 24,
       });
     }
 
@@ -215,6 +216,14 @@ export default async function handler(req, res) {
     subscriber.alertState = {};
     subscriber.thresholdsUpdatedAt = new Date().toISOString();
 
+    // Update re-alert interval (optional, default 24h)
+    const reAlertIntervalHours = Number(req.body?.reAlertIntervalHours);
+    if (!isNaN(reAlertIntervalHours) && reAlertIntervalHours >= 1 && reAlertIntervalHours <= 720) {
+      subscriber.reAlertIntervalHours = reAlertIntervalHours;
+    } else if (!subscriber.reAlertIntervalHours) {
+      subscriber.reAlertIntervalHours = 24;
+    }
+
     const saved = await persistAlertsGist(alertsData);
     if (!saved) {
       return res.status(500).json({ error: 'Failed to save thresholds' });
@@ -223,6 +232,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       thresholds: subscriber.thresholds,
+      reAlertIntervalHours: subscriber.reAlertIntervalHours,
     });
   }
 

@@ -23,6 +23,11 @@ const CRAlerts: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [initialThresholds, setInitialThresholds] = useState<number[]>([...DEFAULT_THRESHOLDS]);
 
+  // Re-alert interval state
+  const [reAlertValue, setReAlertValue] = useState<number | string>(24);
+  const [reAlertUnit, setReAlertUnit] = useState<'hours' | 'days'>('hours');
+  const [initialReAlertHours, setInitialReAlertHours] = useState<number>(24);
+
   // ─── Generate ref code and open bot link ────────────────────────────────────
 
   const handleSetupTelegram = async () => {
@@ -63,6 +68,16 @@ const CRAlerts: React.FC = () => {
         if (data.thresholds && Array.isArray(data.thresholds)) {
           setThresholds(data.thresholds);
           setInitialThresholds(data.thresholds);
+        }
+        // Populate re-alert interval from server
+        const intervalHours = data.reAlertIntervalHours || 24;
+        setInitialReAlertHours(intervalHours);
+        if (intervalHours >= 24 && intervalHours % 24 === 0) {
+          setReAlertValue(intervalHours / 24);
+          setReAlertUnit('days');
+        } else {
+          setReAlertValue(intervalHours);
+          setReAlertUnit('hours');
         }
       }
     } catch {
@@ -122,11 +137,19 @@ const CRAlerts: React.FC = () => {
     setSaveSuccess(false);
     setErrorMessage(null);
 
+    // Convert re-alert to hours
+    const reAlertHours = reAlertUnit === 'days' ? Number(reAlertValue) * 24 : Number(reAlertValue);
+    if (isNaN(reAlertHours) || reAlertHours < 1 || reAlertHours > 720) {
+      setErrorMessage('Re-alert interval must be between 1 hour and 30 days');
+      setIsSaving(false);
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/cr-subscribe?action=save-thresholds&refCode=${refCode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thresholds: validThresholds, refCode }),
+        body: JSON.stringify({ thresholds: validThresholds, refCode, reAlertIntervalHours: reAlertHours }),
       });
 
       const data = await res.json();
@@ -137,6 +160,7 @@ const CRAlerts: React.FC = () => {
 
       setThresholds(data.thresholds);
       setInitialThresholds(data.thresholds);
+      setInitialReAlertHours(reAlertHours);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: unknown) {
@@ -146,9 +170,13 @@ const CRAlerts: React.FC = () => {
     }
   };
 
+  // Compute current re-alert interval in hours for comparison
+  const currentReAlertHours = reAlertUnit === 'days' ? Number(reAlertValue) * 24 : Number(reAlertValue);
+
   const hasChanges = JSON.stringify(
     thresholds.map(t => Number(t)).filter(t => !isNaN(t)).sort((a, b) => b - a)
-  ) !== JSON.stringify([...initialThresholds].sort((a, b) => b - a));
+  ) !== JSON.stringify([...initialThresholds].sort((a, b) => b - a))
+    || currentReAlertHours !== initialReAlertHours;
 
   // ─── Severity helpers ──────────────────────────────────────────────────────
 
@@ -476,8 +504,8 @@ const CRAlerts: React.FC = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            width: '32px',
-                            height: '32px',
+                            alignSelf: 'stretch',
+                            width: '36px',
                             background: 'rgba(239, 68, 68, 0.15)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
                             borderRadius: '0.375rem',
@@ -520,6 +548,88 @@ const CRAlerts: React.FC = () => {
                 Add Alert Level
               </button>
 
+              {/* Re-alert Interval */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  color: 'rgba(148, 163, 184, 0.9)',
+                  marginBottom: '0.5rem',
+                }}>
+                  Repeat alert every
+                </label>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'rgba(15, 23, 42, 0.6)',
+                    borderRadius: '0.5rem',
+                    border: '1px solid rgba(148, 163, 184, 0.2)',
+                    overflow: 'hidden',
+                    flex: 1,
+                    maxWidth: '200px',
+                  }}>
+                    <input
+                      type="number"
+                      value={reAlertValue}
+                      onChange={(e) => setReAlertValue(e.target.value === '' ? '' : Number(e.target.value))}
+                      min={1}
+                      max={reAlertUnit === 'days' ? 30 : 720}
+                      step={1}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        background: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        color: 'white',
+                        fontSize: '1rem',
+                        fontWeight: '600',
+                      }}
+                    />
+                  </div>
+                  <select
+                    value={reAlertUnit}
+                    onChange={(e) => {
+                      const newUnit = e.target.value as 'hours' | 'days';
+                      const currentVal = Number(reAlertValue) || 1;
+                      if (newUnit === 'days' && reAlertUnit === 'hours') {
+                        setReAlertValue(Math.max(1, Math.round(currentVal / 24)));
+                      } else if (newUnit === 'hours' && reAlertUnit === 'days') {
+                        setReAlertValue(currentVal * 24);
+                      }
+                      setReAlertUnit(newUnit);
+                    }}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      background: 'rgba(15, 23, 42, 0.6)',
+                      border: '1px solid rgba(148, 163, 184, 0.2)',
+                      borderRadius: '0.5rem',
+                      color: 'white',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                  </select>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    while CR stays below
+                  </span>
+                </div>
+              </div>
+
               {/* Save Button */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <button
@@ -548,7 +658,7 @@ const CRAlerts: React.FC = () => {
                   ) : (
                     <Check size={18} />
                   )}
-                  {isSaving ? 'Saving...' : 'Save Thresholds'}
+                  {isSaving ? 'Saving...' : 'Save Settings'}
                 </button>
 
                 {saveSuccess && (
@@ -580,7 +690,7 @@ const CRAlerts: React.FC = () => {
                 </div>
                 <ul style={{ margin: 0, paddingLeft: '1.25rem', listStyleType: 'disc' }}>
                   <li>CR is checked every 5–10 minutes or whenever you open the tool (free-tier limits)</li>
-                  <li>Telegram: alert on first breach + every 24 hours while CR stays below</li>
+                  <li>Telegram: alert on first breach, then repeats at your chosen interval while CR stays below</li>
                   <li>All alerts reset when CR recovers above 148%</li>
                   <li>Email alerts coming soon (one-time per breach, resets on recovery)</li>
                 </ul>

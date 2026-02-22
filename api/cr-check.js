@@ -19,7 +19,7 @@ const TELEGRAM_API = 'https://api.telegram.org';
 
 const DEFAULT_THRESHOLDS = [140, 135, 130, 110];
 const CR_RESET_LEVEL = 1.48;
-const TELEGRAM_REALERT_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
+const DEFAULT_REALERT_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours (default fallback)
 const MIN_ALERT_GAP = 2 * 60 * 1000; // 2 minutes
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -265,12 +265,15 @@ async function evaluateForUser(cr, subscriber, thresholds) {
   const isFirstBreach = !entry.active;
   const emoji = { critical: '🚨', high: '🔴', medium: '🟠', low: '🟡' }[mostSevere.severity];
 
-  // ── Telegram: first breach OR 24h re-alert ──
+  // ── Telegram: first breach OR user-configured re-alert ──
+  const reAlertIntervalMs = ((subscriber.reAlertIntervalHours || 24) * 60 * 60 * 1000);
   const telegramDue = isFirstBreach ||
-    (entry.lastTelegram && (nowMs - new Date(entry.lastTelegram).getTime()) >= TELEGRAM_REALERT_INTERVAL);
+    (entry.lastTelegram && (nowMs - new Date(entry.lastTelegram).getTime()) >= reAlertIntervalMs);
 
   if (telegramDue) {
-    const reAlertTag = isFirstBreach ? '' : '\n🔁 _24h re-alert_';
+    const intervalHrs = subscriber.reAlertIntervalHours || 24;
+    const intervalLabel = intervalHrs >= 24 && intervalHrs % 24 === 0 ? `${intervalHrs / 24}d` : `${intervalHrs}h`;
+    const reAlertTag = isFirstBreach ? '' : `\n🔁 _${intervalLabel} re-alert_`;
     await sendTelegram(
       `${emoji} *CR ALERT — Below ${mostSevere.label}*\n\n${msg}\n\n📊 Current CR: *${(cr * 100).toFixed(1)}%*\n⏰ ${now.toISOString()}${reAlertTag}`,
       chatId

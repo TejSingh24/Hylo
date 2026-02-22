@@ -498,16 +498,17 @@ const CRAlerts: React.FC = () => {
 
                       {/* Remove button */}
                       {thresholds.length > 1 && (
-                        <button
+                        <div
                           onClick={() => removeThreshold(index)}
                           title="Remove this threshold"
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') removeThreshold(index); }}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             width: '36px',
-                            margin: 0,
-                            padding: 0,
                             background: 'rgba(239, 68, 68, 0.15)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
                             borderRadius: '0.375rem',
@@ -517,11 +518,11 @@ const CRAlerts: React.FC = () => {
                             fontSize: '1rem',
                             fontWeight: '700',
                             lineHeight: 1,
-                            boxSizing: 'border-box',
+                            userSelect: 'none',
                           }}
                         >
                           ✕
-                        </button>
+                        </div>
                       )}
                     </div>
                   );

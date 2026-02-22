@@ -26,8 +26,8 @@ const CR_THRESHOLDS = [
     message: (cr) => `Hylo projects Collateral Ratio (CR) is ${(cr*100).toFixed(1)}% which is below 135%, Be cautious on sHYUSD loops, sHYUSD price can decrease anytime`,
   },
   {
-    key: 'cr_140', value: 1.40, label: '140%', severity: 'low',
-    message: (cr) => `Hylo projects Collateral Ratio (CR) is ${(cr*100).toFixed(1)}% which is below 140%, Be cautious on sHYUSD loops`,
+    key: 'cr_140', value: 1.45, label: '145%', severity: 'low', // TEMP: raised from 1.40 to 1.45 for testing — revert after
+    message: (cr) => `Hylo projects Collateral Ratio (CR) is ${(cr*100).toFixed(1)}% which is below 145%, Be cautious on sHYUSD loops`,
   },
 ];
 

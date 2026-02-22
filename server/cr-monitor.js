@@ -115,10 +115,10 @@ const CR_THRESHOLDS = [
   },
   {
     key: 'cr_140',
-    value: 1.40,
-    label: '140%',
+    value: 1.45, // TEMP: raised from 1.40 to 1.45 for testing — revert after
+    label: '145%',
     message: (cr) =>
-      `Hylo projects Collateral Ratio (CR) is ${(cr * 100).toFixed(1)}% which is below 140%, Be cautious on sHYUSD loops`,
+      `Hylo projects Collateral Ratio (CR) is ${(cr * 100).toFixed(1)}% which is below 145%, Be cautious on sHYUSD loops`,
     severity: 'low',
   },
 ];

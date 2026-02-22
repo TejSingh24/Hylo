@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Bell, Plus, X, Check, ExternalLink, Loader2 } from 'lucide-react';
+import { Bell, Plus, Check, ExternalLink, Loader2 } from 'lucide-react';
 import '../App.css';
 import '../components/Dashboard.css';
 
@@ -471,6 +471,7 @@ const CRAlerts: React.FC = () => {
                       {thresholds.length > 1 && (
                         <button
                           onClick={() => removeThreshold(index)}
+                          title="Remove this threshold"
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -483,9 +484,12 @@ const CRAlerts: React.FC = () => {
                             color: '#fca5a5',
                             cursor: 'pointer',
                             flexShrink: 0,
+                            fontSize: '1rem',
+                            fontWeight: '700',
+                            lineHeight: 1,
                           }}
                         >
-                          <X size={14} />
+                          ✕
                         </button>
                       )}
                     </div>
@@ -574,11 +578,11 @@ const CRAlerts: React.FC = () => {
                 <div style={{ fontWeight: '600', color: '#c4b5fd', marginBottom: '0.5rem' }}>
                   How alerts work
                 </div>
-                <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
-                  <li>Alerts are checked every 5 minutes</li>
+                <ul style={{ margin: 0, paddingLeft: '1.25rem', listStyleType: 'disc' }}>
+                  <li>CR is checked every 5–10 minutes or whenever you open the tool (free-tier limits)</li>
                   <li>Telegram: alert on first breach + every 24 hours while CR stays below</li>
                   <li>All alerts reset when CR recovers above 148%</li>
-                  <li>Only the most severe breached threshold triggers an alert</li>
+                  <li>Email alerts coming soon (one-time per breach, resets on recovery)</li>
                 </ul>
               </div>
             </div>

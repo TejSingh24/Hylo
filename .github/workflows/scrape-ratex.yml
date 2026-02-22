@@ -38,6 +38,14 @@ jobs:
         env:
           GIST_ID: d3a1db6fc79e168cf5dff8d3a2c11706
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+          MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_FROM_EMAIL: ${{ secrets.ALERT_FROM_EMAIL }}
       
       - name: Upload debug screenshots (if any)
         if: always()

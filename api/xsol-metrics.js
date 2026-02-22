@@ -3,6 +3,8 @@
  * Proxies Hylo API to bypass CORS
  */
 
+import { checkCRThresholdsVercel } from './cr-check.js';
+
 const HYLO_API = 'https://api.hylo.so/stats';
 const HYLO_TOKEN_METADATA = 'https://hylo.so/api/token-metadata/batch';
 const JUPITER_API = 'https://lite-api.jup.ag/price/v3';
@@ -84,6 +86,11 @@ export default async function handler(req, res) {
       lastFetched: new Date().toISOString(),
       source: 'hylo-api'
     };
+    
+    // Non-blocking CR threshold check (don't delay API response)
+    checkCRThresholdsVercel(CollateralRatio).catch(e =>
+      console.warn('CR check background error:', e.message)
+    );
     
     return res.status(200).json(metrics);
     

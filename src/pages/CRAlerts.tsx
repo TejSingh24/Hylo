@@ -251,7 +251,7 @@ const CRAlerts: React.FC = () => {
               marginBottom: '1.25rem',
               lineHeight: '1.5',
             }}>
-              Click the button below to open our alert bot in Telegram. Press <strong>Start</strong> in&nbsp;the&nbsp;bot to connect your account.
+              Click the button below to open our alert bot in Telegram. Press <strong>Start</strong> in&nbsp;the&nbsp;bot to continue.
             </p>
 
             {connectionStatus === 'idle' && (
@@ -433,7 +433,7 @@ const CRAlerts: React.FC = () => {
                   return (
                     <div key={index} style={{
                       display: 'flex',
-                      alignItems: 'center',
+                      alignItems: 'stretch',
                       gap: '0.75rem',
                     }}>
                       <div style={{
@@ -484,16 +484,17 @@ const CRAlerts: React.FC = () => {
                       </div>
 
                       {/* Severity indicator */}
-                      {severity && threshold !== '' && (
-                        <div style={{
-                          fontSize: '0.75rem',
-                          color: severity.color,
-                          whiteSpace: 'nowrap',
-                          minWidth: '80px',
-                        }}>
-                          {severity.emoji} {numValue <= 110 ? 'Critical' : numValue <= 130 ? 'High' : numValue <= 135 ? 'Medium' : 'Low'}
-                        </div>
-                      )}
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: severity?.color || 'transparent',
+                        whiteSpace: 'nowrap',
+                        minWidth: '80px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        visibility: severity && threshold !== '' ? 'visible' : 'hidden',
+                      }}>
+                        {severity?.emoji || '🟡'} {numValue <= 110 ? 'Critical' : numValue <= 130 ? 'High' : numValue <= 135 ? 'Medium' : 'Low'}
+                      </div>
 
                       {/* Remove button */}
                       {thresholds.length > 1 && (
@@ -504,7 +505,6 @@ const CRAlerts: React.FC = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            alignSelf: 'stretch',
                             width: '36px',
                             background: 'rgba(239, 68, 68, 0.15)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',

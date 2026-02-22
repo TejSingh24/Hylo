@@ -283,6 +283,7 @@ async function handleStartWithRef(chatId, refCode, botToken) {
     chatId: chatId,
     refCode: refCode,
     thresholds: [140, 135, 130, 110],
+    reAlertIntervalHours: 24,
     alertState: {},
     active: true,
     connectedAt: new Date().toISOString(),
@@ -325,9 +326,14 @@ async function handleMyThresholds(chatId, botToken) {
   }
 
   const thresholds = (subscriber.thresholds || [140, 135, 130, 110]).sort((a, b) => b - a);
+  const intervalHours = subscriber.reAlertIntervalHours || 24;
+  const intervalLabel = intervalHours >= 24 && intervalHours % 24 === 0
+    ? `${intervalHours / 24} day${intervalHours / 24 !== 1 ? 's' : ''}`
+    : `${intervalHours} hour${intervalHours !== 1 ? 's' : ''}`;
   const lines = [
-    '🔔 *Your Alert Thresholds*\n',
+    '🔔 *Your Alert Settings*\n',
     `Status: ${subscriber.active ? '✅ Active' : '🔕 Paused'}`,
+    `Re-alert: every ${intervalLabel}`,
     '',
   ];
 
